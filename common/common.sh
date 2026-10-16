@@ -2,6 +2,10 @@
 config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/verify-from-gpg"
 relay='wss://verify-relay.tinfoilhash.com'
 
+is_dry_run() {
+  [ "${DRY_RUN:-}" = 1 ]
+}
+
 check_dependencies() {
   local commands=(
     'curl'
@@ -23,16 +27,26 @@ check_dependencies() {
     fi
   done
 
-  if [ -z "${NSEC:-}" ]; then
-    echo '$NSEC not set, exiting'
-    exit 1
+  if is_dry_run; then
+    echo '--- dry run: nothing will be published or recorded'
   fi
 
-  npub_hex=$(nak key public "$NSEC" < /dev/null 2> /dev/null)
+  # A dry run only reads from the relay, so it can take the public key instead of the secret one.
+  local key_variable='$NSEC'
+
+  if is_dry_run && [ -n "${PUBKEY:-}" ]; then
+    key_variable='$PUBKEY'
+    npub_hex="$PUBKEY"
+  elif [ -z "${NSEC:-}" ]; then
+    echo '$NSEC not set, exiting'
+    exit 1
+  else
+    npub_hex=$(nak key public "$NSEC" < /dev/null 2> /dev/null)
+  fi
 
   # nak exits 0 for an invalid key, so check its output instead.
   if [[ ! "$npub_hex" =~ ^[0-9a-f]{64}$ ]]; then
-    echo '$NSEC is invalid, exiting'
+    echo "$key_variable is invalid, exiting"
     exit 1
   fi
 }
@@ -142,6 +156,11 @@ publish_to_verify() {
   local content_type="$4"
   local size="$5"
 
+  if is_dry_run; then
+    echo "dry run: would publish $filename"
+    return
+  fi
+
   nak event -k 1063 -c "$filename" -t x="$hash" -t url="$url" -t m="$content_type" -t size="$size" --sec "$NSEC" "$relay" < /dev/null
 }
 
@@ -175,6 +194,11 @@ complete_release() {
 
   cd "$package_dir" || exit 1
   rm -r "$release_dir"
+
+  if is_dry_run; then
+    echo "dry run: would record $published_at"
+    return
+  fi
 
   cat > "$state_file" << EOF
 last_release_published_at='$published_at'

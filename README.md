@@ -47,6 +47,14 @@ NSEC={{nsec...}} ./packages/{{name}}/verify.sh
 
 on the first run, only the last 3 releases of a package are verified. subsequent runs verify up to 30 releases since the previous run. the date/time of the last release verified is stored in `~/.config/verify-from-gpg/{{name}}`.
 
+### dry run
+
+a dry run does everything except publish events and record the last release, so it's safe to run anywhere. it only reads from the relay, so it can take your public key (hex) instead of your nsec:
+
+```bash
+DRY_RUN=1 PUBKEY={{hex pubkey...}} ./verify_all.sh
+```
+
 ## development
 
 ### tests
