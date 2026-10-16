@@ -39,7 +39,8 @@ verify_from_github() {
 
   echo '----- getting list of releases'
 
-  local releases=$(gh release list --repo "$repo" --exclude-drafts --limit "$limit" --json tagName,publishedAt)
+  local releases
+  releases=$(gh release list --repo "$repo" --exclude-drafts --limit "$limit" --json tagName,publishedAt) || exit 1
 
   echo '----- checking for new releases'
 
@@ -56,19 +57,21 @@ verify_from_github() {
     echo "- $name ($published_at)"
   done
 
-  echo "$new_releases" | while IFS=',' read -r name published_at; do
+  # Read from a separate file descriptor so the loop runs in this shell (letting `exit` stop the script) and nothing
+  # inside it can consume the list.
+  while IFS=',' read -r name published_at <&3; do
     echo "----- new release: $name ($published_at)"
 
     echo '------- getting list of assets'
 
-    local release_assets=$(gh release view "$name" --repo "$repo" --json assets)
+    local release_assets
+    release_assets=$(gh release view "$name" --repo "$repo" --json assets) || exit 1
 
-    echo "------- downloading assets to directory: $name"
+    echo '------- downloading assets'
 
-    mkdir "$name" &> /dev/null
-    cd "$name"
+    start_release
 
-    gh release download "$name" --repo "$repo" --skip-existing
+    gh release download "$name" --repo "$repo" || exit 1
 
     echo '------- verifying gpg signatures'
 
@@ -78,7 +81,7 @@ verify_from_github() {
 
     if [ ! -f "$shasum_filename" ]; then
       echo 'hashes file does not exist, skipping'
-      complete_release "$package_name" "$name" "$published_at"
+      complete_release "$package_name" "$published_at"
       continue
     fi
 
@@ -87,7 +90,7 @@ verify_from_github() {
 
     if [ ! -f "${shasum_signature_filenames[0]}" ]; then
       echo 'gpg signatures file does not exist, skipping'
-      complete_release "$package_name" "$name" "$published_at"
+      complete_release "$package_name" "$published_at"
       continue
     fi
 
@@ -111,7 +114,7 @@ verify_from_github() {
 
     if [ "$is_shasum_signature_verified" = false ]; then
       echo 'gpg signatures verification failed, skipping'
-      complete_release "$package_name" "$name" "$published_at"
+      complete_release "$package_name" "$published_at"
       continue
     fi
 
@@ -127,7 +130,7 @@ verify_from_github() {
 
     local shasum_check=$(echo "$shasum_manifest" | shasum --check --ignore-missing)
 
-    echo "$shasum_manifest" | while IFS=' ' read -r hash filename_shasum; do
+    while IFS=' ' read -r hash filename_shasum <&4; do
       local filename=$(echo "$filename_shasum" | sed 's/^\*//' | sed 's/^\.\///')
 
       echo "------- processing file: $filename"
@@ -170,8 +173,8 @@ verify_from_github() {
       if ! publish_to_verify "$filename" "$hash" "$url" "$content_type" "$size"; then
         exit 1
       fi
-    done
+    done 4<<< "$shasum_manifest"
 
-    complete_release "$package_name" "$name" "$published_at"
-  done
+    complete_release "$package_name" "$published_at"
+  done 3<<< "$new_releases"
 }

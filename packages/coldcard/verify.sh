@@ -35,7 +35,7 @@ fi
 echo '----- getting list of releases'
 
 releases=$(
-  curl -s https://coldcard.com/downloads/all \
+  curl -fsS --max-time 60 https://coldcard.com/downloads/all \
   | hq '{ releases: table > tbody > tr | [ { name: a, url: a | @(href) } ] }'
 )
 
@@ -58,7 +58,7 @@ echo '----- downloading gpg signed hashes'
 
 shasum_signed_filename='signatures.txt'
 
-curl -O "https://raw.githubusercontent.com/Coldcard/firmware/master/releases/$shasum_signed_filename"
+download_file "https://raw.githubusercontent.com/Coldcard/firmware/master/releases/$shasum_signed_filename" || exit 1
 
 echo '----- verifying gpg signatures'
 
@@ -69,25 +69,22 @@ fi
 
 shasum_manifest=$(gpg --decrypt "$shasum_signed_filename" 2>/dev/null)
 
-echo "$new_releases" | while IFS=',' read -r name published_at url; do
+# Read from a separate file descriptor so the loop runs in this shell (letting `exit` stop the script) and nothing
+# inside it can consume the list.
+while IFS=',' read -r name published_at url <&3; do
   echo "----- new release: $name ($published_at)"
 
-  echo "------- downloading asset to directory: $name"
+  echo '------- downloading asset'
 
-  mkdir "$name" &> /dev/null
-  cd "$name"
+  start_release
 
-  if [ -f "$name" ]; then
-    echo 'file already exists, skipping'
-  else
-    curl -O "$url"
-  fi
+  download_file "$url" || exit 1
 
   echo '------- verifying hash'
 
   shasum_check=$(echo "$shasum_manifest" | shasum --check --ignore-missing)
 
-  echo "$shasum_manifest" | while IFS=' ' read -r hash filename; do
+  while IFS=' ' read -r hash filename <&4; do
     if [ ! -f "$filename" ]; then
       continue
     fi
@@ -121,9 +118,9 @@ echo "$new_releases" | while IFS=',' read -r name published_at url; do
     if ! publish_to_verify "$filename" "$hash" "$url" "$content_type" "$size"; then
       exit 1
     fi
-  done
+  done 4<<< "$shasum_manifest"
 
-  complete_release "$package_name" "$name" "$published_at"
-done
+  complete_release "$package_name" "$published_at"
+done 3<<< "$new_releases"
 
 rm "$shasum_signed_filename"

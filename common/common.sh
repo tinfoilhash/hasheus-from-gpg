@@ -92,14 +92,28 @@ publish_to_verify() {
   nak event -k 1063 -c "$filename" -t x="$hash" -t url="$url" -t m="$content_type" -t size="$size" --sec "$NSEC" "$relay" < /dev/null
 }
 
+download_file() {
+  local url="$1"
+
+  # Release files can be several GB, so abort stalled transfers instead of capping the total time.
+  curl -fL --connect-timeout 30 --speed-limit 1024 --speed-time 60 -O "$url"
+}
+
+start_release() {
+  # Start every attempt from an empty directory so a partial download from an interrupted run is never reused.
+  release_dir=$(mktemp -d "$package_dir/release.XXXXXX") || exit 1
+  trap 'rm -rf "$release_dir"' EXIT
+
+  cd "$release_dir" || exit 1
+}
+
 complete_release() {
   local package_name="$1"
-  local release_dir="$2"
-  local published_at="$3"
+  local published_at="$2"
 
   local state_file="$config_dir/$package_name"
 
-  cd ..
+  cd "$package_dir" || exit 1
   rm -r "$release_dir"
 
   cat > "$state_file" << EOF
