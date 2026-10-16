@@ -27,10 +27,7 @@ shasum_filename_pattern() {
 shasum_signature_filename_pattern() {
   local name="$1"
 
-  # Remove "v" before version number.
-  local name_without_v=$(echo "$name" | sed 's/v\([0-9]\)/\1/g')
-
-  echo "liana-$name_without_v-shasums.txt.asc"
+  echo "$(shasum_filename_pattern "$name").asc"
 }
 
 verify_from_github "$package_name" "$repo" shasum_filename_pattern shasum_signature_filename_pattern "${key_fingerprints[@]}"
