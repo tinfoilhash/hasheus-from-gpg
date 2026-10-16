@@ -44,7 +44,7 @@ releases=$(
 
 echo '----- checking for new releases'
 
-new_releases=$(echo "$releases" | jaq -r "map(select(.published_at > \"$last_release_published_at\")) | sort_by(.published_at) | reverse | [limit($limit; .[])] | reverse | .[] | \"\(.name),\(.version),\(.published_at)\"")
+new_releases=$(echo "$releases" | jaq -r --arg since "$last_release_published_at" --argjson limit "$limit" 'map(select(.published_at > $since)) | sort_by(.published_at) | reverse | [limit($limit; .[])] | reverse | .[] | "\(.name),\(.version),\(.published_at)"')
 new_releases_count=$(printf '%s' "$new_releases" | grep -c '^')
 
 echo "new releases found: $new_releases_count"
