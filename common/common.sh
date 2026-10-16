@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/verify-from-gpg"
 relay='wss://verify-relay.tinfoilhash.com'
 
@@ -65,6 +66,8 @@ is_valid_published_at() {
   [[ "$published_at" =~ ^${published_at_pattern}$ ]]
 }
 
+# Sets `last_release_published_at` and `limit` for the package scripts.
+# shellcheck disable=SC2034
 source_state() {
   local package_name="$1"
 
@@ -103,14 +106,16 @@ verify_gpg_signature() {
 
   # gpg's exit status accepts any key in the keyring and fails if any one of several signatures can't be checked,
   # so require a valid signature from an allowlisted key instead.
-  local status=$(gpg --status-fd 1 --verify "${gpg_verify_args[@]}")
+  local status
+  status=$(gpg --status-fd 1 --verify "${gpg_verify_args[@]}")
 
   if [[ "$status" == *'[GNUPG:] BADSIG '* ]]; then
     return 1
   fi
 
   # Fingerprints are allowlisted by signing subkey or primary key, so match either.
-  local signer_fingerprints=$(awk '$2 == "VALIDSIG" { print $3; print $NF }' <<< "$status")
+  local signer_fingerprints
+  signer_fingerprints=$(awk '$2 == "VALIDSIG" { print $3; print $NF }' <<< "$status")
 
   local key_fingerprint
   for key_fingerprint in "${key_fingerprints[@]}"; do
@@ -147,6 +152,8 @@ download_file() {
   curl -fL --connect-timeout 30 --speed-limit 1024 --speed-time 60 -O "$url"
 }
 
+# `package_dir` is set by each package script.
+# shellcheck disable=SC2154
 start_release() {
   # Start every attempt from an empty directory so a partial download from an interrupted run is never reused.
   release_dir=$(mktemp -d "$package_dir/release.XXXXXX") || exit 1

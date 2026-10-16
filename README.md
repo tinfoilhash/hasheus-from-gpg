@@ -46,3 +46,23 @@ NSEC={{nsec...}} ./packages/{{name}}/verify.sh
 ```
 
 on the first run, only the last 3 releases of a package are verified. subsequent runs verify up to 30 releases since the previous run. the date/time of the last release verified is stored in `~/.config/verify-from-gpg/{{name}}`.
+
+## development
+
+### tests
+
+the tests use [bats](https://github.com/bats-core/bats-core). fake `gh`, `nak`, and `curl` (in `test/fakes`) serve fixtures, and gpg keys are generated for each run, so the tests never touch the network or the relay.
+
+```bash
+brew install bats-core shellcheck
+```
+
+```bash
+bats test
+```
+
+### linting
+
+```bash
+shellcheck test/fakes/* test/*.bash test/*.bats verify_all.sh common/*.sh packages/*/verify.sh
+```

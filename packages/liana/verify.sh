@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 package_dir=$(dirname -- "$(realpath "$0")")
-cd "$package_dir"
+cd "$package_dir" || exit 1
 
 source ../../common/github.sh
 
@@ -18,8 +18,10 @@ key_fingerprints=(
 shasum_filename_pattern() {
   local name="$1"
 
-  # Remove "v" before version number.
-  local name_without_v=$(sed 's/v\([0-9]\)/\1/g' <<< "$name")
+  # Remove "v" before version number. This needs a backreference, which parameter expansion doesn't support.
+  local name_without_v
+  # shellcheck disable=SC2001
+  name_without_v=$(sed 's/v\([0-9]\)/\1/g' <<< "$name")
 
   echo "liana-$name_without_v-shasums.txt"
 }
