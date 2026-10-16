@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 package_dir=$(dirname -- "$(realpath "$0")")
 cd "$package_dir"

@@ -10,6 +10,7 @@ in the future, the hope is that the authors of these packages start signing and 
 
 ### dependencies
 
+- [bash](https://www.gnu.org/software/bash/) 3.2 or newer (the macos default, so the scripts must stay compatible with it)
 - [gh](https://cli.github.com/)
 - [gpg](https://www.gnupg.org/)
 - [hq](https://github.com/orf/html-query)
