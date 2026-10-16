@@ -80,12 +80,6 @@ while IFS=',' read -r name version published_at <&3; do
 
   download_file "$version_bin_dir_url/$shasum_signature_filename" || exit 1
 
-  while IFS=' ' read -r hash filename <&4; do
-    echo "------- downloading file: $filename"
-
-    download_file "$version_bin_dir_url/$filename" || exit 1
-  done 4<<< "$shasum_manifest"
-
   echo '------- verifying gpg signatures'
 
   if ! verify_gpg_signature "$shasum_signature_filename" "$shasum_filename" "${key_fingerprints[@]}"; then
@@ -94,10 +88,8 @@ while IFS=',' read -r name version published_at <&3; do
     continue
   fi
 
-  echo '------- verifying hashes'
-
-  shasum_check=$(shasum --check "$shasum_filename" --ignore-missing)
-
+  # Download each file only after the signature verifies and only if it isn't published yet, since a release is
+  # several GB.
   while IFS=' ' read -r hash filename <&4; do
     echo "------- processing file: $filename"
 
@@ -106,7 +98,12 @@ while IFS=',' read -r name version published_at <&3; do
       continue
     fi
 
+    echo '------- downloading file'
+
     url="$version_bin_dir_url/$filename"
+
+    download_file "$url" || exit 1
+
     content_type=$(file --mime-type -b "$filename")
     size=$(wc -c < "$filename" | tr -d ' ')
 
@@ -116,7 +113,7 @@ while IFS=',' read -r name version published_at <&3; do
     echo "content type: $content_type"
     echo "size: $size"
 
-    if echo "$shasum_check" | grep -Fxq "$filename: OK"; then
+    if [ "$(shasum -a 256 "$filename" | cut -d ' ' -f 1)" = "$hash" ]; then
       echo 'verified: yes'
     else
       echo 'verified: no'
