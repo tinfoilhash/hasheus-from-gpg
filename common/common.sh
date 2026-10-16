@@ -26,19 +26,33 @@ check_dependencies() {
   fi
 }
 
+is_valid_published_at() {
+  local published_at="$1"
+
+  # Release dates come from remote data (coldcard's from scraped filenames), so allow only timestamp characters.
+  [[ "$published_at" =~ ^[0-9TZ:+-]+$ ]]
+}
+
 source_state() {
   local package_name="$1"
 
   local state_file="$config_dir/$package_name"
 
-  if [ -f "$state_file" ]; then
-    source "$state_file"
-  else
+  if [ ! -f "$state_file" ]; then
     mkdir -p "$config_dir"
+    last_release_published_at='1970-01-01T00:00:00Z'
+    limit=3
+    return
   fi
 
-  [ -n "${last_release_published_at+set}" ] && limit=30 || limit=3
-  : ${last_release_published_at:='1970-01-01T00:00:00Z'}
+  # Parse instead of sourcing so the file's contents are never run as code.
+  last_release_published_at=$(sed -n "s/^last_release_published_at='\(.*\)'\$/\1/p" "$state_file")
+  limit=30
+
+  if ! is_valid_published_at "$last_release_published_at"; then
+    echo "invalid state in $state_file, exiting"
+    exit 1
+  fi
 }
 
 verify_gpg_signature() {
@@ -112,6 +126,11 @@ complete_release() {
   local published_at="$2"
 
   local state_file="$config_dir/$package_name"
+
+  if ! is_valid_published_at "$published_at"; then
+    echo "invalid release date: $published_at, exiting"
+    exit 1
+  fi
 
   cd "$package_dir" || exit 1
   rm -r "$release_dir"
