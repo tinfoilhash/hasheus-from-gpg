@@ -4,15 +4,18 @@
 source "$BATS_TEST_DIRNAME/test_helper.bash"
 
 # Writes a release whose manifest has one detached signature per signer, like lnd. The first signature (by file
-# name) is from a key that isn't in the keyring and the second from one that isn't listed.
+# name) is from a key that isn't in the keyring and the second from one that isn't listed. Like lnd's, the manifest
+# also lists a file from inside the archive that isn't a release asset.
 make_release_with_signature_per_signer() {
   local release_dir="$1/$2"
   local tag="$2"
 
-  mkdir -p "$release_dir"
+  mkdir -p "$release_dir/app-$tag"
   cd "$release_dir" || exit 1
   echo "app $tag" > "app-$tag.tar.gz"
-  shasum -a 256 "app-$tag.tar.gz" > "manifest-$tag.txt"
+  echo "app $tag binary" > "app-$tag/app"
+  shasum -a 256 "app-$tag.tar.gz" "app-$tag/app" > "manifest-$tag.txt"
+  rm -r "app-$tag"
   sign_detached missing "manifest-$tag.txt" "manifest-aaa-$tag.sig"
   sign_detached stranger "manifest-$tag.txt" "manifest-bbb-$tag.sig"
   sign_detached signer "manifest-$tag.txt" "manifest-zzz-$tag.sig"
@@ -63,21 +66,21 @@ setup_file() {
 
   local root="$BATS_FILE_TMPDIR"
 
-  make_release_with_signature_per_signer "$root/per-signer" v1
-  make_release_with_signature_per_signer "$root/per-signer" v2
-  write_releases "$root/per-signer" v1=2026-01-01T00:00:00Z v2=2026-02-01T00:00:00Z
+  make_release_with_signature_per_signer "$root/per-signer/github.example" v1
+  make_release_with_signature_per_signer "$root/per-signer/github.example" v2
+  write_releases "$root/per-signer/github.example" v1=2026-01-01T00:00:00Z v2=2026-02-01T00:00:00Z
 
-  make_release_with_clearsigned_manifest "$root/clearsigned" v1
-  make_release_with_clearsigned_manifest "$root/clearsigned" v2
-  write_releases "$root/clearsigned" v1=2026-01-01T00:00:00Z v2=2026-02-01T00:00:00Z
+  make_release_with_clearsigned_manifest "$root/clearsigned/github.example" v1
+  make_release_with_clearsigned_manifest "$root/clearsigned/github.example" v2
+  write_releases "$root/clearsigned/github.example" v1=2026-01-01T00:00:00Z v2=2026-02-01T00:00:00Z
 
-  make_release_with_versioned_manifest "$root/versioned" v1
-  make_release_with_versioned_manifest "$root/versioned" v2
-  write_releases "$root/versioned" v1=2026-01-01T00:00:00Z v2=2026-02-01T00:00:00Z
+  make_release_with_versioned_manifest "$root/versioned/github.example" v1
+  make_release_with_versioned_manifest "$root/versioned/github.example" v2
+  write_releases "$root/versioned/github.example" v1=2026-01-01T00:00:00Z v2=2026-02-01T00:00:00Z
 
-  make_release_with_clearsigned_manifest "$root/unlisted-signer" v1 stranger
-  make_release_with_clearsigned_manifest "$root/unlisted-signer" v2
-  write_releases "$root/unlisted-signer" v1=2026-01-01T00:00:00Z v2=2026-02-01T00:00:00Z
+  make_release_with_clearsigned_manifest "$root/unlisted-signer/github.example" v1 stranger
+  make_release_with_clearsigned_manifest "$root/unlisted-signer/github.example" v2
+  write_releases "$root/unlisted-signer/github.example" v1=2026-01-01T00:00:00Z v2=2026-02-01T00:00:00Z
 }
 
 teardown_file() {
@@ -120,8 +123,10 @@ EOF
   chmod +x "$repo_dir/packages/test/verify.sh"
 }
 
+# Serves a fixture's releases through the fake gh, and their assets through the fake curl.
 run_package() {
-  export FAKE_GH_ROOT="$BATS_FILE_TMPDIR/$1"
+  export FAKE_CURL_ROOT="$BATS_FILE_TMPDIR/$1"
+  export FAKE_GH_ROOT="$FAKE_CURL_ROOT/github.example"
   run "$repo_dir/packages/test/verify.sh"
 }
 
@@ -134,6 +139,30 @@ run_package() {
   [ "$(published)" = 'app-v1.tar.gz app-v2.tar.gz' ]
   [ "$(state_of test)" = '2026-02-01T00:00:00Z' ]
   [ -z "$(leftover_files test)" ]
+}
+
+@test 'skips manifest entries that are not release assets' {
+  write_package 'manifest-{{NAME}}.txt' 'manifest-*-{{NAME}}.sig' < /dev/null
+
+  run_package per-signer
+
+  [ "$status" -eq 0 ]
+  [ "$(grep -c 'file is not a release asset, skipping' <<< "$output")" -eq 2 ]
+}
+
+@test 'downloads only hashes, signatures, and files that are not published yet' {
+  write_package 'manifest-{{NAME}}.txt' 'manifest-*-{{NAME}}.sig' < /dev/null
+  run_package per-signer
+  rm "$XDG_CONFIG_HOME/verify-from-gpg/test"
+  grep -v app-v2.tar.gz "$FAKE_NAK_LOG" > "$FAKE_NAK_LOG.new"
+  mv "$FAKE_NAK_LOG.new" "$FAKE_NAK_LOG"
+  export FAKE_CURL_LOG="$BATS_TEST_TMPDIR/downloads"
+
+  run_package per-signer
+
+  [ "$status" -eq 0 ]
+  [ "$(grep -v -e '^manifest-' "$FAKE_CURL_LOG")" = 'app-v2.tar.gz' ]
+  [ "$(grep -c '^manifest-' "$FAKE_CURL_LOG")" -eq 8 ]
 }
 
 @test 'publishes clearsigned manifests that use binary mode file names' {
@@ -197,7 +226,7 @@ EOF
 @test 'exits without recording the release when a download fails' {
   write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
 
-  FAKE_GH_DOWNLOAD_FAIL=v2 run_package clearsigned
+  FAKE_CURL_FAIL=app-v2.zip run_package clearsigned
 
   [ "$status" -eq 1 ]
   [ "$(published)" = 'app-v1.zip' ]

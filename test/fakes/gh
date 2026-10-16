@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-# Serves releases from $FAKE_GH_ROOT: releases.json for `release list`, and <tag>/ for each release's assets.
+# Serves releases from $FAKE_GH_ROOT: releases.json for `release list`, and <tag>/ for each release's assets, whose
+# URLs point at https://github.example/<tag>/<name> (for the fake curl to serve).
 
 command="$1 $2"
 tag="$3"
@@ -14,14 +15,6 @@ case "$command" in
       jaq -n --arg tag "$tag" --arg name "${path##*/}" --argjson size "$(wc -c < "$path")" \
         '{ name: $name, url: ("https://github.example/" + $tag + "/" + $name), contentType: "application/octet-stream", size: $size }'
     done | jaq -s '{ assets: . }'
-    ;;
-  'release download')
-    if [ "$tag" = "${FAKE_GH_DOWNLOAD_FAIL:-}" ]; then
-      echo 'fake gh: download failed' >&2
-      exit 1
-    fi
-
-    cp "$FAKE_GH_ROOT/$tag"/* .
     ;;
   *)
     echo "fake gh: unexpected command: $*" >&2
