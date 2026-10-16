@@ -1,0 +1,66 @@
+name: monitor
+
+# Checks the keys and every package against the live sources each day, without publishing anything, to catch upstream
+# changes (a new page layout, a new signer, an expired or removed key) when they happen.
+on:
+  schedule:
+    - cron: '0 15 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      # tinfoil hash's public key, to check what's already published.
+      PUBKEY: 46fc4feba53427642bf90f3a9addad6288c77f93a756692c9988794fbd97a5b3
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gnupg libxml2-utils
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
+          brew install hq jaq nak
+
+      - name: check keys
+        run: |
+          set +e
+          ./check_keys.sh --import | tee keys.log
+          status=${PIPESTATUS[0]}
+
+          {
+            echo '## keys'
+            grep -E '^  (problem|warning):' keys.log || echo 'no problems or warnings'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          exit "$status"
+
+      # Runs even when the key check finds problems, since it imports the keys this needs.
+      - name: dry run
+        if: success() || failure()
+        run: |
+          set +e
+          DRY_RUN=1 ./verify_all.sh > dry-run.log 2>&1
+          status=$?
+          cat dry-run.log
+
+          skipped_count=$(grep -c 'gpg signatures verification failed' dry-run.log)
+
+          {
+            echo '## dry run'
+            echo "- releases skipped because no listed key signed them: $skipped_count"
+            echo "- files not published yet: $(grep -c 'dry run: would publish' dry-run.log)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$skipped_count" -gt 0 ]; then
+            echo '::error::a release is not signed by any listed key'
+            status=1
+          fi
+
+          exit "$status"

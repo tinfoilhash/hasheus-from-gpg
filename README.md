@@ -25,12 +25,18 @@ curl, file, shasum, and xmllint come with macos.
 
 ### import gpg keys
 
-you must manually import the gpg keys of the authors. each `verify.sh` script checks for the expected fingerprint(s) and includes the last known url(s).
-
-for example:
+each `verify.sh` script lists the fingerprints of the keys it trusts, each with the url it's published at. to import them all from those urls:
 
 ```bash
-curl https://keybase.io/craigraw/pgp_keys.asc | gpg --import
+./check_keys.sh --import
+```
+
+only the listed key is imported from each url, even when the file has others. without `--import`, it only reports problems: listed keys that aren't imported or are no longer at their url, and keys in a project's key folder that aren't listed (exit status 1). expired keys are reported as warnings, since only their owners can fix them.
+
+a key can be newer on a keyserver than at its listed url. if one is reported as expired, try refreshing it:
+
+```bash
+gpg --keyserver hkps://keys.openpgp.org --recv-keys {{fingerprint}}
 ```
 
 ## usage
@@ -69,8 +75,12 @@ brew install bats-core shellcheck
 bats test
 ```
 
+### monitoring
+
+the [monitor](.github/workflows/monitor.yml) workflow runs `./check_keys.sh --import` and a dry run of every package each day, to catch upstream changes like a new page layout, a new signer, or an expired or removed key. it fails when the key check finds a problem or a release isn't signed by any listed key, and its summary lists the warnings and any files not published yet.
+
 ### linting
 
 ```bash
-shellcheck test/fakes/* test/*.bash test/*.bats verify_all.sh common/*.sh packages/*/verify.sh
+shellcheck check_keys.sh test/fakes/* test/*.bash test/*.bats verify_all.sh common/*.sh packages/*/verify.sh
 ```
