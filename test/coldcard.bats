@@ -32,6 +32,10 @@ setup_file() {
 
   make_site "$BATS_FILE_TMPDIR/site" signer
   make_site "$BATS_FILE_TMPDIR/site-unlisted-signer" stranger
+
+  # A site whose newest firmware changed after it was hashed.
+  make_site "$BATS_FILE_TMPDIR/site-tampered" signer
+  echo 'changed' >> "$BATS_FILE_TMPDIR/site-tampered/coldcard.com/downloads/2026-09-30T2026-v5.6.3-mk-coldcard.dfu"
 }
 
 teardown_file() {
@@ -63,11 +67,27 @@ setup() {
 }
 
 @test 'exits 1 when signatures.txt is not signed by a listed key' {
-  export FAKE_CURL_ROOT="$BATS_FILE_TMPDIR/site-unlisted-signer"
-
-  run "$repo_dir/packages/coldcard/verify.sh"
+  FAKE_CURL_ROOT="$BATS_FILE_TMPDIR/site-unlisted-signer" run "$repo_dir/packages/coldcard/verify.sh"
 
   [ "$status" -eq 1 ]
   [ -z "$(published)" ]
   [ -z "$(state_of coldcard)" ]
+  [ -z "$(leftover_files coldcard)" ]
+}
+
+@test 'does not publish firmware that fails its hash check' {
+  FAKE_CURL_ROOT="$BATS_FILE_TMPDIR/site-tampered" run "$repo_dir/packages/coldcard/verify.sh"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'file not verified, skipping'* ]]
+  [ "$(published)" = '2026-08-20T1336-v5.6.1-mk-coldcard.dfu' ]
+}
+
+@test 'exits without recording the release when a download fails' {
+  FAKE_CURL_FAIL=2026-09-30T2026-v5.6.3-mk-coldcard.dfu run "$repo_dir/packages/coldcard/verify.sh"
+
+  [ "$status" -eq 1 ]
+  [ "$(published)" = '2026-08-20T1336-v5.6.1-mk-coldcard.dfu' ]
+  [ "$(state_of coldcard)" = '2026-08-20T1336' ]
+  [ -z "$(leftover_files coldcard)" ]
 }

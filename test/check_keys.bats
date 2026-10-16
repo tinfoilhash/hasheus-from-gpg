@@ -11,6 +11,14 @@ setup_file() {
   # An expired key, made by pretending it's 2020.
   gpg_quiet --faked-system-time 20200101T000000! --quick-gen-key expired@test ed25519 sign 1y
 
+  # A revoked key, using the revocation certificate gpg saves when it makes a key.
+  gpg_quiet --quick-gen-key revoked@test ed25519 sign never
+  sed 's/^:-----/-----/' "$GNUPGHOME/openpgp-revocs.d/$(fingerprint_of revoked).rev" | gpg_quiet --import
+
+  # A key whose only signing subkey expired, made by pretending it's 2020.
+  gpg_quiet --faked-system-time 20200101T000000! --quick-gen-key no-signing-key@test ed25519 cert never
+  gpg_quiet --faked-system-time 20200101T000000! --quick-add-key "$(fingerprint_of no-signing-key)" ed25519 sign 1y
+
   # A key that's only in the missing keyring, to be offered alongside "missing" in one file.
   GNUPGHOME="$MISSING_GNUPGHOME" gpg_quiet --quick-gen-key unwanted@test ed25519 sign never
 
@@ -20,6 +28,13 @@ setup_file() {
   gpg --armor --export signer@test > "$keys_dir/signer.asc"
   gpg --armor --export signer@test > "$keys_dir/signer-alias.asc"
   gpg --armor --export expired@test > "$keys_dir/expired.asc"
+  gpg --armor --export signer@test > "$BATS_FILE_TMPDIR/site/raw.githubusercontent.com/owner/keys/main/signer.asc"
+  gpg --armor --export revoked@test > "$BATS_FILE_TMPDIR/site/raw.githubusercontent.com/owner/keys/main/revoked.asc"
+  gpg --armor --export no-signing-key@test > "$BATS_FILE_TMPDIR/site/raw.githubusercontent.com/owner/keys/main/no-signing-key.asc"
+
+  # A keyserver lookup, which has no file name.
+  mkdir -p "$BATS_FILE_TMPDIR/site/keyserver.example/pks"
+  gpg --armor --export signer@test > "$BATS_FILE_TMPDIR/site/keyserver.example/pks/lookup?op=get&search=0x$(fingerprint_of signer)"
   gpg --armor --export stranger@test > "$keys_dir/stranger.asc"
   GNUPGHOME="$MISSING_GNUPGHOME" gpg --armor --export missing@test unwanted@test > "$keys_dir/missing.asc"
 
@@ -147,4 +162,60 @@ write_package() {
   [[ "$output" == *'problem: owner/keys has keys/missing.asc, which isn'\''t listed'* ]]
   [[ "$output" != *'signer-alias.asc'* ]]
   [[ "$output" != *'README.md'* ]]
+}
+
+# These keys are at the repo's root, which isn't a key folder, so they're not compared with a folder listing.
+write_root_package() {
+  mkdir -p "$repo_dir/packages/test"
+  {
+    echo 'key_fingerprints=('
+
+    local name
+    for name in "$@"; do
+      echo "  '$(fingerprint_of "$name")' # https://raw.githubusercontent.com/owner/keys/main/$name.asc"
+    done
+
+    echo ')'
+  } > "$repo_dir/packages/test/verify.sh"
+}
+
+@test 'reports a revoked key' {
+  write_root_package revoked
+
+  run "$repo_dir/check_keys.sh"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"problem: revoked.asc ($(fingerprint_of revoked | cut -c 25-)) is revoked"* ]]
+}
+
+@test 'warns about a key whose signing subkeys have all expired' {
+  write_root_package no-signing-key
+
+  run "$repo_dir/check_keys.sh"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"warning: no-signing-key.asc ($(fingerprint_of no-signing-key | cut -c 25-)) has no usable signing key"* ]]
+}
+
+@test 'does not compare keys at a repo root with a folder listing' {
+  write_root_package signer
+
+  run "$repo_dir/check_keys.sh"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'--- 0 problems, 0 warnings'* ]]
+}
+
+@test 'names a keyserver lookup by its host' {
+  local fingerprint
+  fingerprint=$(fingerprint_of signer)
+  mkdir -p "$repo_dir/packages/test"
+  printf "key_fingerprints=(\n  '%s' # https://keyserver.example/pks/lookup?op=get&search=0x%s\n)\n" "$fingerprint" "$fingerprint" \
+    > "$repo_dir/packages/test/verify.sh"
+
+  # An empty keyring, so the key is reported as not imported.
+  GNUPGHOME=$(mktemp -d /tmp/verify-from-gpg-test.XXXXXX) run "$repo_dir/check_keys.sh"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"problem: keyserver.example (${fingerprint: -16}) isn't imported"* ]]
 }

@@ -12,6 +12,21 @@ setup() {
   unset NSEC PUBKEY DRY_RUN
 }
 
+@test 'exits when a dependency is missing' {
+  local bin_dir="$BATS_TEST_TMPDIR/bin"
+  mkdir -p "$bin_dir"
+
+  local command
+  for command in curl file gh gpg hq jaq nak shasum; do
+    ln -s "$(command -v "$command")" "$bin_dir/$command"
+  done
+
+  PATH="$bin_dir" NSEC='nsec-fake' run check_dependencies
+
+  [ "$status" -eq 1 ]
+  [ "$output" = 'xmllint not found, exiting' ]
+}
+
 @test 'exits when NSEC is not set' {
   run check_dependencies
 

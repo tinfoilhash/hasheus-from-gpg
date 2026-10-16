@@ -1,8 +1,5 @@
 #!/usr/bin/env bats
 
-# Each test runs in its own subshell, so exporting fixture paths inside a test is intended.
-# shellcheck disable=SC2030,SC2031
-
 # shellcheck source=test/test_helper.bash
 source "$BATS_TEST_DIRNAME/test_helper.bash"
 
@@ -85,9 +82,7 @@ downloaded_binaries() {
 }
 
 @test 'downloads no files from a release that is not signed by a listed key' {
-  export FAKE_CURL_ROOT="$BATS_FILE_TMPDIR/site-unlisted-signer"
-
-  run "$repo_dir/packages/bitcoin_core/verify.sh"
+  FAKE_CURL_ROOT="$BATS_FILE_TMPDIR/site-unlisted-signer" run "$repo_dir/packages/bitcoin_core/verify.sh"
 
   [ "$status" -eq 0 ]
   [ "$(downloaded_binaries)" = 'bitcoin-30.0.tar.gz bitcoin-30.0.zip' ]
@@ -95,9 +90,7 @@ downloaded_binaries() {
 }
 
 @test 'does not publish a file that fails its hash check' {
-  export FAKE_CURL_ROOT="$BATS_FILE_TMPDIR/site-tampered"
-
-  run "$repo_dir/packages/bitcoin_core/verify.sh"
+  FAKE_CURL_ROOT="$BATS_FILE_TMPDIR/site-tampered" run "$repo_dir/packages/bitcoin_core/verify.sh"
 
   [ "$status" -eq 0 ]
   [ "$(published)" = 'bitcoin-30.0.tar.gz bitcoin-30.0.zip bitcoin-30.1.tar.gz' ]

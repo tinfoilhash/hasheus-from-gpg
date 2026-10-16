@@ -1,8 +1,5 @@
 #!/usr/bin/env bats
 
-# Each test runs in its own subshell, so exporting fixture paths inside a test is intended.
-# shellcheck disable=SC2030,SC2031
-
 # shellcheck source=test/test_helper.bash
 source "$BATS_TEST_DIRNAME/test_helper.bash"
 
@@ -80,6 +77,19 @@ setup_file() {
   make_release_with_versioned_manifest "$root/versioned/github.example" v1
   make_release_with_versioned_manifest "$root/versioned/github.example" v2
   write_releases "$root/versioned/github.example" v1=2026-01-01T00:00:00Z v2=2026-02-01T00:00:00Z
+
+  # A release with only an asset, one with hashes but no signature, and one whose asset changed after it was hashed.
+  mkdir -p "$root/no-hashes/github.example/v1"
+  echo 'app v1' > "$root/no-hashes/github.example/v1/app-v1.zip"
+  write_releases "$root/no-hashes/github.example" v1=2026-01-01T00:00:00Z
+
+  make_release_with_signature_per_signer "$root/no-signature/github.example" v1
+  rm "$root/no-signature/github.example/v1/"*.sig
+  write_releases "$root/no-signature/github.example" v1=2026-01-01T00:00:00Z
+
+  make_release_with_clearsigned_manifest "$root/tampered/github.example" v1
+  echo 'changed' >> "$root/tampered/github.example/v1/app-v1.zip"
+  write_releases "$root/tampered/github.example" v1=2026-01-01T00:00:00Z
 
   make_release_with_clearsigned_manifest "$root/unlisted-signer/github.example" v1 stranger
   make_release_with_clearsigned_manifest "$root/unlisted-signer/github.example" v2
@@ -159,13 +169,13 @@ run_package() {
   rm "$XDG_CONFIG_HOME/verify-from-gpg/test"
   grep -v app-v2.tar.gz "$FAKE_NAK_LOG" > "$FAKE_NAK_LOG.new"
   mv "$FAKE_NAK_LOG.new" "$FAKE_NAK_LOG"
-  export FAKE_CURL_LOG="$BATS_TEST_TMPDIR/downloads"
+  local downloads="$BATS_TEST_TMPDIR/downloads"
 
-  run_package per-signer
+  FAKE_CURL_LOG="$downloads" run_package per-signer
 
   [ "$status" -eq 0 ]
-  [ "$(grep -v -e '^manifest-' "$FAKE_CURL_LOG")" = 'app-v2.tar.gz' ]
-  [ "$(grep -c '^manifest-' "$FAKE_CURL_LOG")" -eq 8 ]
+  [ "$(grep -v -e '^manifest-' "$downloads")" = 'app-v2.tar.gz' ]
+  [ "$(grep -c '^manifest-' "$downloads")" -eq 8 ]
 }
 
 @test 'publishes clearsigned manifests that use binary mode file names' {
@@ -198,6 +208,38 @@ EOF
   [[ "$output" == *'gpg signatures verification failed, skipping'* ]]
   [ "$(published)" = 'app-v2.zip' ]
   [ "$(state_of test)" = '2026-02-01T00:00:00Z' ]
+}
+
+@test 'skips and records a release with no hashes file' {
+  write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
+
+  run_package no-hashes
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'hashes file does not exist, skipping'* ]]
+  [ -z "$(published)" ]
+  [ "$(state_of test)" = '2026-01-01T00:00:00Z' ]
+}
+
+@test 'skips and records a release with no signature file' {
+  write_package 'manifest-{{NAME}}.txt' 'manifest-*-{{NAME}}.sig' < /dev/null
+
+  run_package no-signature
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'gpg signatures file does not exist, skipping'* ]]
+  [ -z "$(published)" ]
+  [ "$(state_of test)" = '2026-01-01T00:00:00Z' ]
+}
+
+@test 'does not publish a file that fails its hash check' {
+  write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
+
+  run_package tampered
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'file not verified, skipping'* ]]
+  [ -z "$(published)" ]
 }
 
 @test 'checks only releases published since the last run' {
@@ -239,10 +281,10 @@ EOF
 
 @test 'retries a relay query that fails' {
   write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
-  export FAKE_NAK_REQ_FAILURES="$BATS_TEST_TMPDIR/failures"
-  echo 2 > "$FAKE_NAK_REQ_FAILURES"
+  local failures="$BATS_TEST_TMPDIR/failures"
+  echo 2 > "$failures"
 
-  run_package clearsigned
+  FAKE_NAK_REQ_FAILURES="$failures" run_package clearsigned
 
   [ "$status" -eq 0 ]
   [ "$(published)" = 'app-v1.zip app-v2.zip' ]
@@ -250,10 +292,10 @@ EOF
 
 @test 'exits instead of publishing when the relay cannot be queried' {
   write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
-  export FAKE_NAK_REQ_FAILURES="$BATS_TEST_TMPDIR/failures"
-  echo 3 > "$FAKE_NAK_REQ_FAILURES"
+  local failures="$BATS_TEST_TMPDIR/failures"
+  echo 3 > "$failures"
 
-  run_package clearsigned
+  FAKE_NAK_REQ_FAILURES="$failures" run_package clearsigned
 
   [ "$status" -eq 1 ]
   [[ "$output" == *'relay query failed, exiting'* ]]
