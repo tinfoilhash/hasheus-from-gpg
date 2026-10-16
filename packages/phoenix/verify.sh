@@ -13,6 +13,7 @@ package_name='phoenix'
 repo='ACINQ/phoenix'
 key_fingerprints=(
   '55092314AD0547C59BDB7AE8E04E48E72C205463' # https://acinq.co/pgp/drouinf2.asc
+  '6AA45A4C209A2D3064CF66BEE434ED292E85643A' # https://acinq.co/pgp/padioupm.asc
 )
 shasum_filename_pattern='SHA256SUMS.asc'
 shasum_signature_filename_pattern="$shasum_filename_pattern"
