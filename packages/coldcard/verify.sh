@@ -21,14 +21,15 @@ check_gpg_keys "${key_fingerprints[@]}"
 
 echo '----- getting list of releases'
 
+# Rows also link to security status pages, so collect every link and keep the firmware files.
 releases=$(
   curl -fsS --max-time 60 https://coldcard.com/downloads/all \
-  | hq '{ releases: table > tbody > tr | [ { name: a, url: a | @(href) } ] }'
+  | hq '{ urls: table > tbody > tr a | [ @(href) ] }'
 )
 
 echo '----- checking for new releases'
 
-new_releases=$(echo "$releases" | jaq -r --arg since "$last_release_published_at" --argjson limit "$limit" '.releases | map(select(.name | endswith(".dfu"))) | map(select(.name[0:15] > $since)) | sort_by(.name[0:15]) | reverse | [limit($limit; .[])] | reverse | .[] | "\(.name),\(.name[0:15]),\("https://coldcard.com" + .url)"')
+new_releases=$(echo "$releases" | jaq -r --arg since "$last_release_published_at" --argjson limit "$limit" '.urls | map(select(endswith(".dfu"))) | unique | map({ name: split("/") | last, url: ("https://coldcard.com" + .) }) | map(select(.name[0:15] > $since)) | sort_by(.name[0:15]) | reverse | [limit($limit; .[])] | reverse | .[] | "\(.name),\(.name[0:15]),\(.url)"')
 new_releases_count=$(printf '%s' "$new_releases" | grep -c '^')
 
 echo "new releases found: $new_releases_count"
