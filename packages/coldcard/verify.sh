@@ -23,13 +23,16 @@ echo '----- getting list of releases'
 
 # Rows also link to security status pages, so collect every link and keep the firmware files.
 releases=$(
+  # Fail if any command fails, not just the last, so a failed fetch isn't read as no new releases.
+  set -o pipefail
+
   curl -fsS --max-time 60 https://coldcard.com/downloads/all \
   | hq '{ urls: table > tbody > tr a | [ @(href) ] }'
-)
+) || exit 1
 
 echo '----- checking for new releases'
 
-new_releases=$(echo "$releases" | jaq -r --arg since "$last_release_published_at" --argjson limit "$limit" '.urls | map(select(endswith(".dfu"))) | unique | map({ name: split("/") | last, url: ("https://coldcard.com" + .) }) | map(select(.name[0:15] > $since)) | sort_by(.name[0:15]) | reverse | [limit($limit; .[])] | reverse | .[] | "\(.name),\(.name[0:15]),\(.url)"')
+new_releases=$(jaq -r --arg since "$last_release_published_at" --argjson limit "$limit" '.urls | map(select(endswith(".dfu"))) | unique | map({ name: split("/") | last, url: ("https://coldcard.com" + .) }) | map(select(.name[0:15] > $since)) | sort_by(.name[0:15]) | reverse | [limit($limit; .[])] | reverse | .[] | "\(.name),\(.name[0:15]),\(.url)"' <<< "$releases")
 new_releases_count=$(printf '%s' "$new_releases" | grep -c '^')
 
 echo "new releases found: $new_releases_count"
@@ -38,9 +41,9 @@ if [ "$new_releases_count" -eq 0 ]; then
   exit
 fi
 
-echo "$new_releases" | while IFS=',' read -r name published_at url; do
+while IFS=',' read -r name published_at url; do
   echo "- $name ($published_at)"
-done
+done <<< "$new_releases"
 
 echo '----- downloading gpg signed hashes'
 
@@ -70,7 +73,7 @@ while IFS=',' read -r name published_at url <&3; do
 
   echo '------- verifying hash'
 
-  shasum_check=$(echo "$shasum_manifest" | shasum --check --ignore-missing)
+  shasum_check=$(shasum --check --ignore-missing <<< "$shasum_manifest")
 
   while IFS=' ' read -r hash filename <&4; do
     if [ ! -f "$filename" ]; then
@@ -93,7 +96,7 @@ while IFS=',' read -r name published_at url <&3; do
     echo "content type: $content_type"
     echo "size: $size"
 
-    if echo "$shasum_check" | grep -Fxq "$filename: OK"; then
+    if grep -Fxq "$filename: OK" <<< "$shasum_check"; then
       echo 'verified: yes'
     else
       echo 'verified: no'

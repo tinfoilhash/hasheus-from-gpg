@@ -16,7 +16,7 @@ check_dependencies() {
 
   local command
   for command in "${commands[@]}"; do
-    if ! type "$command" &> /dev/null; then
+    if ! command -v "$command" &> /dev/null; then
       echo "$command not found, exiting"
       exit 1
     fi
@@ -56,11 +56,13 @@ check_gpg_keys() {
   fi
 }
 
+# Release dates come from remote data (coldcard's from scraped filenames), so allow only timestamp characters.
+published_at_pattern='[0-9TZ:+-]+'
+
 is_valid_published_at() {
   local published_at="$1"
 
-  # Release dates come from remote data (coldcard's from scraped filenames), so allow only timestamp characters.
-  [[ "$published_at" =~ ^[0-9TZ:+-]+$ ]]
+  [[ "$published_at" =~ ^${published_at_pattern}$ ]]
 }
 
 source_state() {
@@ -76,13 +78,15 @@ source_state() {
   fi
 
   # Parse instead of sourcing so the file's contents are never run as code.
-  last_release_published_at=$(sed -n "s/^last_release_published_at='\(.*\)'\$/\1/p" "$state_file")
-  limit=30
+  local state_pattern="^last_release_published_at='(${published_at_pattern})'\$"
 
-  if ! is_valid_published_at "$last_release_published_at"; then
+  if [[ ! "$(<"$state_file")" =~ $state_pattern ]]; then
     echo "invalid state in $state_file, exiting"
     exit 1
   fi
+
+  last_release_published_at="${BASH_REMATCH[1]}"
+  limit=30
 }
 
 verify_gpg_signature() {
@@ -101,16 +105,16 @@ verify_gpg_signature() {
   # so require a valid signature from an allowlisted key instead.
   local status=$(gpg --status-fd 1 --verify "${gpg_verify_args[@]}")
 
-  if echo "$status" | grep -q '^\[GNUPG:\] BADSIG '; then
+  if [[ "$status" == *'[GNUPG:] BADSIG '* ]]; then
     return 1
   fi
 
   # Fingerprints are allowlisted by signing subkey or primary key, so match either.
-  local signer_fingerprints=$(echo "$status" | awk '$2 == "VALIDSIG" { print $3; print $NF }')
+  local signer_fingerprints=$(awk '$2 == "VALIDSIG" { print $3; print $NF }' <<< "$status")
 
   local key_fingerprint
   for key_fingerprint in "${key_fingerprints[@]}"; do
-    if echo "$signer_fingerprints" | grep -Fxqi "$key_fingerprint"; then
+    if grep -Fxqi "$key_fingerprint" <<< "$signer_fingerprints"; then
       return 0
     fi
   done

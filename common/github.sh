@@ -1,4 +1,4 @@
-source ../../common/common.sh
+source "${BASH_SOURCE%/*}/common.sh"
 
 resolve_filename_pattern() {
   local pattern="$1"
@@ -30,7 +30,7 @@ verify_from_github() {
 
   echo '----- checking for new releases'
 
-  local new_releases=$(echo "$releases" | jaq -r --arg since "$last_release_published_at" 'map(select(.publishedAt > $since)) | reverse | .[] | "\(.tagName),\(.publishedAt)"')
+  local new_releases=$(jaq -r --arg since "$last_release_published_at" 'map(select(.publishedAt > $since)) | reverse | .[] | "\(.tagName),\(.publishedAt)"' <<< "$releases")
   local new_releases_count=$(printf '%s' "$new_releases" | grep -c '^')
 
   echo "new releases found: $new_releases_count"
@@ -39,9 +39,9 @@ verify_from_github() {
     return
   fi
 
-  echo "$new_releases" | while IFS=',' read -r name published_at; do
+  while IFS=',' read -r name published_at; do
     echo "- $name ($published_at)"
-  done
+  done <<< "$new_releases"
 
   # Read from a separate file descriptor so the loop runs in this shell (letting `exit` stop the script) and nothing
   # inside it can consume the list.
@@ -80,12 +80,12 @@ verify_from_github() {
       continue
     fi
 
-    local is_shasum_signature_detached=$(if [ "$shasum_filename" = "${shasum_signature_filenames[0]}" ]; then echo 0; else echo 1; fi)
+    local is_shasum_signature_detached=true
+    local shasum_signed_filename="$shasum_filename"
 
-    local shasum_signed_filename=''
-
-    if [ "$is_shasum_signature_detached" -eq 1 ]; then
-      shasum_signed_filename="$shasum_filename"
+    if [ "$shasum_filename" = "${shasum_signature_filenames[0]}" ]; then
+      is_shasum_signature_detached=false
+      shasum_signed_filename=''
     fi
 
     local is_shasum_signature_verified=false
@@ -108,16 +108,17 @@ verify_from_github() {
 
     local shasum_manifest
 
-    if [ "$is_shasum_signature_detached" -eq 1 ]; then
+    if [ "$is_shasum_signature_detached" = true ]; then
       shasum_manifest=$(<"$shasum_filename")
     else
       shasum_manifest=$(gpg --decrypt "$shasum_signature_filename" 2>/dev/null)
     fi
 
-    local shasum_check=$(echo "$shasum_manifest" | shasum --check --ignore-missing)
+    local shasum_check=$(shasum --check --ignore-missing <<< "$shasum_manifest")
 
     while IFS=' ' read -r hash filename_shasum <&4; do
-      local filename=$(echo "$filename_shasum" | sed 's/^\*//' | sed 's/^\.\///')
+      local filename="${filename_shasum#\*}"
+      filename="${filename#./}"
 
       echo "------- processing file: $filename"
 
@@ -131,7 +132,7 @@ verify_from_github() {
         continue
       fi
 
-      local release_asset=$(echo "$release_assets" | jaq -r --arg filename "$filename" '.assets[] | select(.name == $filename) | "\(.url),\(.contentType),\(.size)"')
+      local release_asset=$(jaq -r --arg filename "$filename" '.assets[] | select(.name == $filename) | "\(.url),\(.contentType),\(.size)"' <<< "$release_assets")
 
       if [ -z "$release_asset" ]; then
         echo 'release asset not found, exiting'
@@ -146,7 +147,7 @@ verify_from_github() {
       echo "content type: $content_type"
       echo "size: $size"
 
-      if echo "$shasum_check" | grep -Fxq -e "$filename: OK" -e "$filename_shasum: OK"; then
+      if grep -Fxq -e "$filename: OK" -e "$filename_shasum: OK" <<< "$shasum_check"; then
         echo 'verified: yes'
       else
         echo 'verified: no'
