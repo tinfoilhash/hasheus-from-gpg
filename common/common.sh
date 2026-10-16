@@ -177,6 +177,67 @@ publish_to_verify() {
   nak event -k 1063 -c "$filename" -t x="$hash" -t url="$url" -t m="$content_type" -t size="$size" --sec "$NSEC" "$relay" < /dev/null
 }
 
+# Prints the file name from a manifest line, without shasum's `*` (binary mode) or a leading `./`.
+manifest_filename() {
+  local shasum_line="$1"
+
+  local hash filename
+  read -r hash filename <<< "$shasum_line"
+  filename="${filename#\*}"
+
+  echo "${filename#./}"
+}
+
+# Publishes the file on a verified manifest line: skips it if it's already published, otherwise downloads it, checks
+# it against the line, and publishes it. The content type and size default to the downloaded file's.
+publish_file() {
+  local shasum_line="$1"
+  local url="$2"
+  local content_type="${3:-}"
+  local size="${4:-}"
+
+  local hash
+  read -r hash _ <<< "$shasum_line"
+
+  local filename
+  filename=$(manifest_filename "$shasum_line")
+
+  if is_published_to_verify "$hash"; then
+    echo 'file already verified, skipping'
+    return
+  fi
+
+  echo '------- downloading file'
+
+  download_file "$url" "$filename" || exit 1
+
+  if [ -z "$content_type" ]; then
+    content_type=$(file --mime-type -b "$filename")
+  fi
+
+  if [ -z "$size" ]; then
+    size=$(wc -c < "$filename" | tr -d ' ')
+  fi
+
+  echo "filename: $filename"
+  echo "hash: $hash"
+  echo "url: $url"
+  echo "content type: $content_type"
+  echo "size: $size"
+
+  if shasum --check --status <<< "$shasum_line"; then
+    echo 'verified: yes'
+  else
+    echo 'verified: no'
+    echo 'file not verified, skipping'
+    return
+  fi
+
+  echo '------- publishing event'
+
+  publish_to_verify "$filename" "$hash" "$url" "$content_type" "$size" || exit 1
+}
+
 download_file() {
   local url="$1"
   local filename="${2:-${url##*/}}"

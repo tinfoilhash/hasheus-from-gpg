@@ -153,11 +153,8 @@ verify_from_github() {
     # several GB.
     local shasum_line
     while IFS= read -r shasum_line <&4; do
-      local hash filename_shasum
-      read -r hash filename_shasum <<< "$shasum_line"
-
-      local filename="${filename_shasum#\*}"
-      filename="${filename#./}"
+      local filename
+      filename=$(manifest_filename "$shasum_line")
 
       echo "------- processing file: $filename"
 
@@ -170,36 +167,10 @@ verify_from_github() {
         continue
       fi
 
-      if is_published_to_verify "$hash"; then
-        echo 'file already verified, skipping'
-        continue
-      fi
-
+      local url content_type size
       IFS=',' read -r url content_type size <<< "$release_asset"
 
-      echo '------- downloading file'
-
-      download_file "$url" "$filename" || exit 1
-
-      echo "filename: $filename"
-      echo "hash: $hash"
-      echo "url: $url"
-      echo "content type: $content_type"
-      echo "size: $size"
-
-      if shasum --check --status <<< "$shasum_line"; then
-        echo 'verified: yes'
-      else
-        echo 'verified: no'
-        echo 'file not verified, skipping'
-        continue
-      fi
-
-      echo '------- publishing event'
-
-      if ! publish_to_verify "$filename" "$hash" "$url" "$content_type" "$size"; then
-        exit 1
-      fi
+      publish_file "$shasum_line" "$url" "$content_type" "$size"
     done 4<<< "$shasum_manifest"
 
     complete_release "$package_name" "$published_at"

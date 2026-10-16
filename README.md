@@ -21,7 +21,7 @@ in the future, the hope is that the authors of these packages start signing and 
 - [shasum](https://perldoc.perl.org/shasum)
 - [xmllint](https://gnome.pages.gitlab.gnome.org/libxml2/xmllint.html)
 
-curl, file, shasum, and xmllint come with macos.
+curl, file, shasum, and xmllint come with macos. gh must be logged in (`gh auth login`, or set `GH_TOKEN`).
 
 ### import gpg keys
 

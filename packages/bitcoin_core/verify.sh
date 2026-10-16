@@ -72,7 +72,7 @@ releases=$(
 
 echo '----- checking for new releases'
 
-new_releases=$(jaq -r --arg since "$last_release_published_at" --argjson limit "$limit" 'map(select(.published_at > $since)) | sort_by(.published_at) | reverse | [limit($limit; .[])] | reverse | .[] | "\(.name),\(.version),\(.published_at)"' <<< "$releases")
+new_releases=$(jaq -r --arg since "$last_release_published_at" --argjson limit "$limit" 'map(select(.published_at > $since)) | sort_by(.published_at) | reverse | [limit($limit; .[])] | reverse | .[] | "\(.name),\(.version),\(.published_at)"' <<< "$releases") || exit 1
 new_releases_count=$(printf '%s' "$new_releases" | grep -c '^')
 
 echo "new releases found: $new_releases_count"
@@ -118,42 +118,12 @@ while IFS=',' read -r name version published_at <&3; do
 
   # Download each file only after the signature verifies and only if it isn't published yet, since a release is
   # several GB.
-  while IFS=' ' read -r hash filename <&4; do
+  while IFS= read -r shasum_line <&4; do
+    filename=$(manifest_filename "$shasum_line")
+
     echo "------- processing file: $filename"
 
-    if is_published_to_verify "$hash"; then
-      echo 'file already verified, skipping'
-      continue
-    fi
-
-    echo '------- downloading file'
-
-    url="$version_bin_dir_url/$filename"
-
-    download_file "$url" || exit 1
-
-    content_type=$(file --mime-type -b "$filename")
-    size=$(wc -c < "$filename" | tr -d ' ')
-
-    echo "filename: $filename"
-    echo "hash: $hash"
-    echo "url: $url"
-    echo "content type: $content_type"
-    echo "size: $size"
-
-    if [ "$(shasum -a 256 "$filename" | cut -d ' ' -f 1)" = "$hash" ]; then
-      echo 'verified: yes'
-    else
-      echo 'verified: no'
-      echo 'file not verified, skipping'
-      continue
-    fi
-
-    echo '------- publishing event'
-
-    if ! publish_to_verify "$filename" "$hash" "$url" "$content_type" "$size"; then
-      exit 1
-    fi
+    publish_file "$shasum_line" "$version_bin_dir_url/$filename"
   done 4<<< "$shasum_manifest"
 
   complete_release "$package_name" "$published_at"
