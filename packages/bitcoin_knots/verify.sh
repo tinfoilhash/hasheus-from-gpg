@@ -19,6 +19,9 @@ key_fingerprints=(
   'DAED928C727D3E613EC46635F5073C4F4882FFFC' # https://raw.githubusercontent.com/bitcoinknots/guix.sigs/knots/builder-keys/leo-haf.gpg
   '658E64021E5793C6C4E15E45C2E581F5B998F30E' # https://raw.githubusercontent.com/bitcoinknots/guix.sigs/knots/builder-keys/chrisguida.gpg
   'F68650A2E112BFAD08454264CFB2E7C306F13F5D' # https://raw.githubusercontent.com/bitcoinknots/guix.sigs/knots/builder-keys/oomahq.gpg
+  '2DEA254A2055EFD1DA82BB2315D2B66859703841' # https://raw.githubusercontent.com/bitcoinknots/guix.sigs/knots/builder-keys/bigshiny90.gpg
+  '314B8D611A0C0468498C35C52018C90B857A0571' # https://raw.githubusercontent.com/bitcoinknots/guix.sigs/knots/builder-keys/innerhat-dev.gpg
+  'A47D99B6DB0D715D40C59A2023AE8A8EA7E24E38' # https://raw.githubusercontent.com/bitcoinknots/guix.sigs/knots/builder-keys/kwsantiago.gpg
 )
 shasum_filename_pattern='SHA256SUMS'
 shasum_signature_filename_pattern="$shasum_filename_pattern.asc"
