@@ -17,4 +17,4 @@ key_fingerprints=(
 shasum_filename_pattern='sparrow-{{NAME}}-manifest.txt'
 shasum_signature_filename_pattern="$shasum_filename_pattern.asc"
 
-verify_from_github "$package_name" "$repo" "$key_fingerprints" "$shasum_filename_pattern" "$shasum_signature_filename_pattern"
+verify_from_github "$package_name" "$repo" "$shasum_filename_pattern" "$shasum_signature_filename_pattern" "${key_fingerprints[@]}"

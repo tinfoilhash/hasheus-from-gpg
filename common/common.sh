@@ -41,6 +41,39 @@ source_state() {
   : ${last_release_published_at:='1970-01-01T00:00:00Z'}
 }
 
+verify_gpg_signature() {
+  local signature_filename="$1"
+  local data_filename="$2"
+  shift 2
+  local key_fingerprints=("$@")
+
+  local gpg_verify_args=("$signature_filename")
+
+  if [ -n "$data_filename" ]; then
+    gpg_verify_args+=("$data_filename")
+  fi
+
+  # gpg's exit status accepts any key in the keyring and fails if any one of several signatures can't be checked,
+  # so require a valid signature from an allowlisted key instead.
+  local status=$(gpg --status-fd 1 --verify "${gpg_verify_args[@]}")
+
+  if echo "$status" | grep -q '^\[GNUPG:\] BADSIG '; then
+    return 1
+  fi
+
+  # Fingerprints are allowlisted by signing subkey or primary key, so match either.
+  local signer_fingerprints=$(echo "$status" | awk '$2 == "VALIDSIG" { print $3; print $NF }')
+
+  local key_fingerprint
+  for key_fingerprint in "${key_fingerprints[@]}"; do
+    if echo "$signer_fingerprints" | grep -Fxqi "$key_fingerprint"; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
 is_published_to_verify() {
   local hash="$1"
 

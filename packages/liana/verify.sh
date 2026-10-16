@@ -33,4 +33,4 @@ shasum_signature_filename_pattern() {
   echo "liana-$name_without_v-shasums.txt.asc"
 }
 
-verify_from_github "$package_name" "$repo" "$key_fingerprints" shasum_filename_pattern shasum_signature_filename_pattern
+verify_from_github "$package_name" "$repo" shasum_filename_pattern shasum_signature_filename_pattern "${key_fingerprints[@]}"
