@@ -1,0 +1,14 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_size = 2
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# shfmt: pipes and && start continued lines, case branches are indented, and redirects have a space (`2> /dev/null`).
+binary_next_line = true
+switch_case_indent = true
+space_redirects = true

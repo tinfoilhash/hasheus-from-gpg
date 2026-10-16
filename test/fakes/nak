@@ -9,7 +9,7 @@ case "$1" in
     ;;
   req)
     if [ -n "${FAKE_NAK_REQ_FAILURES:-}" ] && [ "$(cat "$FAKE_NAK_REQ_FAILURES")" -gt 0 ]; then
-      echo $(( $(cat "$FAKE_NAK_REQ_FAILURES") - 1 )) > "$FAKE_NAK_REQ_FAILURES"
+      echo $(($(cat "$FAKE_NAK_REQ_FAILURES") - 1)) > "$FAKE_NAK_REQ_FAILURES"
       exit 3
     fi
 

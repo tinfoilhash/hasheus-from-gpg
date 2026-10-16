@@ -97,7 +97,7 @@ source_state() {
   # Parse instead of sourcing so the file's contents are never run as code.
   local state_pattern="^last_release_published_at='(${published_at_pattern})'\$"
 
-  if [[ ! "$(<"$state_file")" =~ $state_pattern ]]; then
+  if [[ ! "$(< "$state_file")" =~ $state_pattern ]]; then
     echo "invalid state in $state_file, exiting"
     exit 1
   fi

@@ -35,7 +35,7 @@ is_any_key_in_file() {
   local key_filename="$2"
 
   gpg --with-colons --show-keys "$key_filename" 2> /dev/null \
-  | awk -F: -v fingerprints="$(tr '\n' ' ' <<< "$fingerprints")" '
+    | awk -F: -v fingerprints="$(tr '\n' ' ' <<< "$fingerprints")" '
     BEGIN { split(fingerprints, list, " "); for (i in list) listed[list[i]] = 1 }
     $1 == "fpr" && ($10 in listed) { found = 1 }
     END { exit !found }
@@ -137,7 +137,7 @@ check_listed_keys() {
 
     case "$status" in
       ok) ;;
-      "isn't imported"|'is revoked') report_problem "$label $status" ;;
+      "isn't imported" | 'is revoked') report_problem "$label $status" ;;
       *) report_warning "$label $status" ;;
     esac
   done < <(listed_keys "$package_name")
@@ -168,7 +168,7 @@ check_unlisted_keys() {
       report_problem "$repo has $directory/$filename, which isn't listed"
     done < <(
       gh api "repos/$repo/contents/$directory?ref=$ref" \
-      | jaq -r '.[] | select(.type == "file" and (.name | test("\\.(asc|gpg|txt)$"))) | "\(.name) \(.download_url)"'
+        | jaq -r '.[] | select(.type == "file" and (.name | test("\\.(asc|gpg|txt)$"))) | "\(.name) \(.download_url)"'
     )
   done < <(
     while read -r url; do
