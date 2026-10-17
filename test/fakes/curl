@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# serves https://<host>/<path> from $FAKE_CURL_ROOT/<host>/<path>, failing like
-# `curl -f` when it's missing.
+# serves https://<host>/<path> from $FAKE_CURL_ROOT/<host>/<path> (index.html
+# for a path ending in /), failing like `curl -f` when it's missing.
 
 url=''
 output_filename=''
@@ -20,9 +20,13 @@ while [ $# -gt 0 ]; do
 done
 
 path="$FAKE_CURL_ROOT/${url#https://}"
+if [[ "$path" == */ ]]; then
+  path+='index.html'
+fi
 filename="${url##*/}"
 
-if [ "$filename" = "${FAKE_CURL_FAIL:-}" ] || [ ! -f "$path" ]; then
+if [ -n "${FAKE_CURL_FAIL:-}" ] && [ "$filename" = "$FAKE_CURL_FAIL" ] \
+  || [ ! -f "$path" ]; then
   echo "curl: (22) The requested URL returned error: 404" >&2
   exit 22
 fi
