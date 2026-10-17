@@ -206,6 +206,13 @@ run_signed_files_release() {
   [ "$(published)" = 'elements-23.3.4-x86_64-linux-gnu.tar.gz' ]
 }
 
+@test 'faraday' {
+  run_release faraday v0.2.14-alpha manifest-v0.2.14-alpha.txt \
+    manifest-v0.2.14-alpha.sig faraday-linux-amd64-v0.2.14-alpha.tar.gz
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'faraday-linux-amd64-v0.2.14-alpha.tar.gz' ]
+}
+
 @test 'fulcrum' {
   run_release fulcrum v2.1.3 Fulcrum-2.1.3-shasums.txt \
     Fulcrum-2.1.3-shasums.txt.asc Fulcrum-2.1.3-x86_64-linux.tar.gz
