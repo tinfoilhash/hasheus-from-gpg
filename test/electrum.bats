@@ -78,6 +78,12 @@ setup_file() {
   local filenames=(*)
   write_index index.html "${filenames[@]}"
 
+  # a site whose newest version folder serves a page that isn't an index.
+  local not_index_root="$BATS_FILE_TMPDIR/site-not-index"
+  make_site "$not_index_root"
+  echo '<html><body>Just a moment...</body></html>' \
+    > "$not_index_root/download.electrum.org/4.8.2/index.html"
+
   # a site whose newest dmg changed after it was signed.
   local tampered_root="$BATS_FILE_TMPDIR/site-tampered"
   make_site "$tampered_root"
@@ -145,6 +151,16 @@ run_electrum() {
   [[ "$output" == *'signed files do not exist, skipping'* ]]
   published_is Electrum-4.8.1.tar.gz electrum-4.8.1.dmg
   [ "$(state_of electrum)" = '2026-09-12T18:10' ]
+}
+
+@test 'exits without recording a version whose folder has no file links' {
+  FAKE_CURL_ROOT="$BATS_FILE_TMPDIR/site-not-index" run_electrum
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'no files in the folder listing, exiting'* ]]
+  published_is Electrum-4.8.1.tar.gz electrum-4.8.1.dmg
+  [ "$(state_of electrum)" = '2026-08-12T15:10' ]
+  [ -z "$(leftover_files electrum)" ]
 }
 
 @test 'exits without recording the version when a download fails' {

@@ -96,6 +96,13 @@ while IFS=',' read -r version published_at <&3; do
       | jaq -r '.urls[] | select(test("^[A-Za-z0-9][A-Za-z0-9._-]*$"))'
   ) || exit 1
 
+  # every version folder lists files, so an empty list means the page wasn't
+  # an index (like a challenge page). exit so the release is tried again.
+  if [ -z "$filenames" ]; then
+    echo 'no files in the folder listing, exiting'
+    exit 1
+  fi
+
   # each file's .asc has every signer's signature. the per-signer copies, like
   # <file>.ThomasV.asc, aren't signed themselves, so they're left out.
   signed_names=$(signed_filenames "$filenames" .asc)
