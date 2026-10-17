@@ -199,6 +199,13 @@ run_signed_files_release() {
   [ "$(published)" = 'eclair-node-0.14.4-397abfc-bin.zip' ]
 }
 
+@test 'elements' {
+  run_release elements elements-23.3.4 SHA256SUMS.asc SHA256SUMS.asc \
+    elements-23.3.4-x86_64-linux-gnu.tar.gz SHA256SUMS
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'elements-23.3.4-x86_64-linux-gnu.tar.gz' ]
+}
+
 @test 'fulcrum' {
   run_release fulcrum v2.1.3 Fulcrum-2.1.3-shasums.txt \
     Fulcrum-2.1.3-shasums.txt.asc Fulcrum-2.1.3-x86_64-linux.tar.gz
