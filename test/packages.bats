@@ -135,6 +135,12 @@ run_signed_files_release() {
   [ "$(published)" = 'Bisq-2.1.14.dmg' ]
 }
 
+@test 'bitboxapp' {
+  run_signed_files_release bitboxapp v4.52.0 .asc BitBox-4.52.0-android.apk
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'BitBox-4.52.0-android.apk' ]
+}
+
 @test 'bitcoin knots' {
   run_release bitcoin_knots v29.4.2.knots20260508 SHA256SUMS SHA256SUMS.asc \
     bitcoin-29.4.2.knots20260508-x86_64-linux-gnu.tar.gz
