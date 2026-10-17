@@ -262,6 +262,14 @@ run_signed_files_release() {
   [ "$(published)" = 'liana-business-1.0rc2-1_amd64.deb' ]
 }
 
+@test 'lightning node connect' {
+  run_release lightning_node_connect v0.4.0-alpha manifest-v0.4.0-alpha.txt \
+    manifest-ViktorT-11-v0.4.0-alpha.sig lnc-v0.4.0-alpha.wasm \
+    manifest-ViktorT-11-v0.4.0-alpha.sig.ots
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'lnc-v0.4.0-alpha.wasm' ]
+}
+
 @test 'lightning terminal' {
   run_release lightning_terminal v0.17.7 manifest-v0.17.7.txt \
     manifest-roasbeef-v0.17.7.sig \
