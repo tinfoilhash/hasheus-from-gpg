@@ -167,6 +167,13 @@ run_release() {
   [ "$(published)" = 'lnd-darwin-amd64-v0.21.4-beta.tar.gz' ]
 }
 
+@test 'loop' {
+  run_release loop v0.35.0-beta manifest-v0.35.0-beta.txt \
+    manifest-v0.35.0-beta.txt.sig loop-linux-amd64-v0.35.0-beta.tar.gz
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'loop-linux-amd64-v0.35.0-beta.tar.gz' ]
+}
+
 @test 'phoenix' {
   run_release phoenix android-v2.8.4 SHA256SUMS.asc SHA256SUMS.asc \
     phoenix-120-2.8.4-mainnet.apk
