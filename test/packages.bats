@@ -115,6 +115,13 @@ run_release() {
   [ "$(published)" = 'eclair-node-0.14.4-397abfc-bin.zip' ]
 }
 
+@test 'fulcrum' {
+  run_release fulcrum v2.1.3 Fulcrum-2.1.3-shasums.txt \
+    Fulcrum-2.1.3-shasums.txt.asc Fulcrum-2.1.3-x86_64-linux.tar.gz
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'Fulcrum-2.1.3-x86_64-linux.tar.gz' ]
+}
+
 @test 'haven' {
   run_release haven v1.2.2 checksums.txt checksums.txt.sig \
     haven_Darwin_arm64.tar.gz
