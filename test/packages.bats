@@ -129,6 +129,13 @@ run_release() {
   [ "$(published)" = 'haven_Darwin_arm64.tar.gz' ]
 }
 
+@test 'krux' {
+  run_release krux v26.09.0 SHA256SUMS SHA256SUMS.asc krux-v26.09.0.zip \
+    SHA256SUMS.sig
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'krux-v26.09.0.zip' ]
+}
+
 @test 'liana' {
   run_release liana v15.0 liana-15.0-shasums.txt liana-15.0-shasums.txt.asc \
     liana-15.0-x86_64-linux-gnu.tar.gz
