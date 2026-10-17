@@ -169,6 +169,12 @@ run_signed_files_release() {
   [ "$(published)" = 'Blockstream-x86_64.AppImage' ]
 }
 
+@test 'bluewallet' {
+  run_signed_files_release bluewallet v8.0.2 .sig BlueWallet-8.0.2.apk
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'BlueWallet-8.0.2.apk' ]
+}
+
 @test 'chantools' {
   run_release chantools v0.14.3 manifest-v0.14.3.txt manifest-v0.14.3.sig \
     chantools-linux-amd64-v0.14.3.tar.gz
