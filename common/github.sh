@@ -21,21 +21,7 @@ verify_from_github() {
 
   source_state "$package_name"
 
-  echo '----- checking for gpg keys'
-
-  local key_fingerprints_found=false
-
-  local key_fingerprint
-  for key_fingerprint in "${key_fingerprints[@]}"; do
-    if gpg --list-keys "$key_fingerprint"; then
-      key_fingerprints_found=true
-    fi
-  done
-
-  if [ "$key_fingerprints_found" = false ]; then
-    echo 'did not find at least one key, exiting'
-    exit 1
-  fi
+  check_gpg_keys "${key_fingerprints[@]}"
 
   echo '----- getting list of releases'
 

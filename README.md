@@ -11,11 +11,17 @@ in the future, the hope is that the authors of these packages start signing and 
 ### dependencies
 
 - [bash](https://www.gnu.org/software/bash/) 3.2 or newer (the macos default, so the scripts must stay compatible with it)
+- [curl](https://curl.se/)
+- [file](https://www.darwinsys.com/file/)
 - [gh](https://cli.github.com/)
 - [gpg](https://www.gnupg.org/)
 - [hq](https://github.com/orf/html-query)
 - [jaq](https://github.com/01mf02/jaq)
 - [nak](https://github.com/fiatjaf/nak)
+- [shasum](https://perldoc.perl.org/shasum)
+- [xmllint](https://gnome.pages.gitlab.gnome.org/libxml2/xmllint.html)
+
+curl, file, shasum, and xmllint come with macos.
 
 ### import gpg keys
 

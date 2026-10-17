@@ -31,20 +31,7 @@ key_fingerprints=(
   '67AA5B46E7AF78053167FE343B8F814A784218F8' # https://raw.githubusercontent.com/bitcoin-core/guix.sigs/refs/heads/main/builder-keys/willcl-ark.gpg
 )
 
-echo '----- checking for gpg keys'
-
-key_fingerprints_found=false
-
-for key_fingerprint in "${key_fingerprints[@]}"; do
-  if gpg --list-keys "$key_fingerprint"; then
-    key_fingerprints_found=true
-  fi
-done
-
-if [ "$key_fingerprints_found" = false ]; then
-  echo 'did not find at least one key, exiting'
-  exit 1
-fi
+check_gpg_keys "${key_fingerprints[@]}"
 
 echo '----- getting list of releases'
 

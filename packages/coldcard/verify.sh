@@ -17,20 +17,7 @@ key_fingerprints=(
   '4589779ADFC14F3327534EA8A3A31BAD5A2A5B10' # https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xA3A31BAD5A2A5B10
 )
 
-echo '----- checking for gpg keys'
-
-key_fingerprints_found=false
-
-for key_fingerprint in "${key_fingerprints[@]}"; do
-  if gpg --list-keys "$key_fingerprint"; then
-    key_fingerprints_found=true
-  fi
-done
-
-if [ "$key_fingerprints_found" = false ]; then
-  echo 'did not find at least one key, exiting'
-  exit 1
-fi
+check_gpg_keys "${key_fingerprints[@]}"
 
 echo '----- getting list of releases'
 

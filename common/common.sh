@@ -1,15 +1,17 @@
 config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/verify-from-gpg"
 relay='wss://verify-relay.tinfoilhash.com'
 
-npub_hex=$(nak key public "$NSEC")
-
 check_dependencies() {
   local commands=(
+    'curl'
+    'file'
     'gh'
     'gpg'
     'hq'
     'jaq'
     'nak'
+    'shasum'
+    'xmllint'
   )
 
   local command
@@ -20,8 +22,36 @@ check_dependencies() {
     fi
   done
 
-  if [ ! -n "${NSEC+set}" ]; then
+  if [ -z "${NSEC:-}" ]; then
     echo '$NSEC not set, exiting'
+    exit 1
+  fi
+
+  npub_hex=$(nak key public "$NSEC" < /dev/null 2> /dev/null)
+
+  # nak exits 0 for an invalid key, so check its output instead.
+  if [[ ! "$npub_hex" =~ ^[0-9a-f]{64}$ ]]; then
+    echo '$NSEC is invalid, exiting'
+    exit 1
+  fi
+}
+
+check_gpg_keys() {
+  local key_fingerprints=("$@")
+
+  echo '----- checking for gpg keys'
+
+  local key_fingerprints_found=false
+
+  local key_fingerprint
+  for key_fingerprint in "${key_fingerprints[@]}"; do
+    if gpg --list-keys "$key_fingerprint"; then
+      key_fingerprints_found=true
+    fi
+  done
+
+  if [ "$key_fingerprints_found" = false ]; then
+    echo 'did not find at least one key, exiting'
     exit 1
   fi
 }
