@@ -127,7 +127,9 @@ verify_new_releases() {
 
     start_release "$published_at"
 
-    "$verify_release" "$name" "$release_assets" "$asset_names" "$@"
+    # the function exits on any failure, but a return that isn't 0 still stops
+    # the release from being recorded.
+    "$verify_release" "$name" "$release_assets" "$asset_names" "$@" || exit 1
 
     complete_release "$package_name" "$published_at"
   done 3<<< "$new_releases"

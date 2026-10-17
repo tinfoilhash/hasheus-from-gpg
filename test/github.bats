@@ -448,6 +448,17 @@ EOF
   [ -z "$(state_of test)" ]
 }
 
+@test 'exits without recording the release when a signed file download fails' {
+  write_signed_files_package
+
+  FAKE_CURL_FAIL=app-v2.exe run_package signed-files
+
+  [ "$status" -eq 1 ]
+  published_is app-v1.dmg app-v1.exe app-v2.dmg
+  [ "$(state_of test)" = '2026-01-01T00:00:00Z' ]
+  [ -z "$(leftover_files test)" ]
+}
+
 @test 'skips signed files already published without downloading them' {
   write_signed_files_package
   run_package signed-files
