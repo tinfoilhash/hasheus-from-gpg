@@ -54,11 +54,13 @@ download_file "https://raw.githubusercontent.com/Coldcard/firmware/master/releas
 echo '----- verifying gpg signatures'
 
 if ! verify_gpg_signature "$shasum_signed_filename" '' "${key_fingerprints[@]}"; then
+  rm "$shasum_signed_filename"
   echo 'gpg signatures verification failed, exiting'
   exit 1
 fi
 
 shasum_manifest=$(gpg --decrypt "$shasum_signed_filename" 2>/dev/null)
+rm "$shasum_signed_filename"
 
 # Read from a separate file descriptor so the loop runs in this shell (letting `exit` stop the script) and nothing
 # inside it can consume the list.
@@ -113,5 +115,3 @@ while IFS=',' read -r name published_at url <&3; do
 
   complete_release "$package_name" "$published_at"
 done 3<<< "$new_releases"
-
-rm "$shasum_signed_filename"
