@@ -32,17 +32,18 @@ check_dependencies() {
     echo '--- dry run: nothing will be published or recorded'
   fi
 
-  # a dry run only reads from the relay, so it can take the npub instead of the nsec.
+  # a dry run only reads from the relay, so it can take the npub instead of the nsec. the nsec wins when both are
+  # set, so a dry run checks the same key a real run would publish with.
   local key_variable='$NSEC'
 
-  if is_dry_run && [ -n "${NPUB:-}" ]; then
+  if [ -n "${NSEC:-}" ]; then
+    npub_hex=$(nak key public "$NSEC" < /dev/null 2> /dev/null)
+  elif is_dry_run && [ -n "${NPUB:-}" ]; then
     key_variable='$NPUB'
     npub_hex=$(nak decode "$NPUB" < /dev/null 2> /dev/null)
-  elif [ -z "${NSEC:-}" ]; then
+  else
     echo '$NSEC not set, exiting'
     exit 1
-  else
-    npub_hex=$(nak key public "$NSEC" < /dev/null 2> /dev/null)
   fi
 
   # nak exits 0 for an invalid key, so check its output instead.

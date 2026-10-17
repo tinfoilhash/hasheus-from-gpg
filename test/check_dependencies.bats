@@ -53,6 +53,12 @@ setup() {
   [ "$output" = '$NSEC not set, exiting' ]
 }
 
+@test 'uses NSEC over NPUB in a dry run when both are set' {
+  DRY_RUN=1 NSEC='nsec-fake' NPUB="$TEST_NPUB" check_dependencies
+
+  [ "$npub_hex" = "$(printf '%064d' 0)" ]
+}
+
 @test 'rejects an invalid NPUB' {
   DRY_RUN=1 NPUB='npub1notvalid' run check_dependencies
 
