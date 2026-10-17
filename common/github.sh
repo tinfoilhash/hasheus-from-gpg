@@ -3,9 +3,10 @@ source ../../common/common.sh
 verify_from_github() {
   local package_name="$1"
   local repo="$2"
-  local key_fingerprints="$3"
-  local shasum_filename_pattern="$4"
-  local shasum_signature_filename_pattern="$5"
+  local shasum_filename_pattern="$3"
+  local shasum_signature_filename_pattern="$4"
+  shift 4
+  local key_fingerprints=("$@")
 
   source_state "$package_name"
 
@@ -94,13 +95,13 @@ verify_from_github() {
 
     local is_shasum_signature_detached=$(if [ "$shasum_filename" = "$shasum_signature_filename" ]; then echo 0; else echo 1; fi)
 
-    local gpg_verify_args=("$shasum_signature_filename")
+    local shasum_signed_filename=''
 
     if [ "$is_shasum_signature_detached" -eq 1 ]; then
-      gpg_verify_args+=("$shasum_filename")
+      shasum_signed_filename="$shasum_filename"
     fi
 
-    if ! gpg --verify "${gpg_verify_args[@]}"; then
+    if ! verify_gpg_signature "$shasum_signature_filename" "$shasum_signed_filename" "${key_fingerprints[@]}"; then
       echo 'gpg signatures verification failed, skipping'
       complete_release "$package_name" "$name" "$published_at"
       continue

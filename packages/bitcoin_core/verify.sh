@@ -114,7 +114,7 @@ echo "$new_releases" | while IFS=',' read -r name version published_at; do
 
   echo '------- verifying gpg signatures'
 
-  if ! gpg --verify "$shasum_signature_filename"; then
+  if ! verify_gpg_signature "$shasum_signature_filename" "$shasum_filename" "${key_fingerprints[@]}"; then
     echo 'gpg signatures verification failed, skipping'
     complete_release "$package_name" "$version" "$published_at"
     continue
