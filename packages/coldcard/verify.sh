@@ -27,7 +27,7 @@ releases=$(
   set -o pipefail
 
   curl -fsS --max-time 60 https://coldcard.com/downloads/all \
-  | hq '{ urls: table > tbody > tr a | [ @(href) ] }'
+    | hq '{ urls: table > tbody > tr a | [ @(href) ] }'
 ) || exit 1
 
 echo '----- checking for new releases'
@@ -59,7 +59,7 @@ if ! verify_gpg_signature "$shasum_signed_filename" '' "${key_fingerprints[@]}";
   exit 1
 fi
 
-shasum_manifest=$(gpg --decrypt "$shasum_signed_filename" 2>/dev/null)
+shasum_manifest=$(gpg --decrypt "$shasum_signed_filename" 2> /dev/null)
 rm "$shasum_signed_filename"
 
 # Read from a separate file descriptor so the loop runs in this shell (letting `exit` stop the script) and nothing

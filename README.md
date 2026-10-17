@@ -68,7 +68,7 @@ DRY_RUN=1 PUBKEY={{hex pubkey...}} ./verify_all.sh
 the tests use [bats](https://github.com/bats-core/bats-core). fake `gh`, `nak`, and `curl` (in `test/fakes`) serve fixtures, and gpg keys are generated for each run, so the tests never touch the network or the relay.
 
 ```bash
-brew install bats-core shellcheck
+brew install actionlint bats-core shellcheck shfmt
 ```
 
 ```bash
@@ -79,8 +79,24 @@ bats test
 
 the [monitor](.github/workflows/monitor.yml) workflow runs `./check_keys.sh --import` and a dry run of every package each day, to catch upstream changes like a new page layout, a new signer, or an expired or removed key. it fails when the key check finds a problem or a release isn't signed by any listed key, and its summary lists the warnings and any files not published yet.
 
-### linting
+### linting & formatting
+
+[shfmt](https://github.com/mvdan/sh) formats the scripts, with its settings in `.editorconfig`. [shellcheck](https://www.shellcheck.net/) lints every file shfmt finds, and [actionlint](https://github.com/rhysd/actionlint) lints the workflows, including shellcheck on their scripts.
 
 ```bash
-shellcheck check_keys.sh test/fakes/* test/*.bash test/*.bats verify_all.sh common/*.sh packages/*/verify.sh
+shfmt -d .
+```
+
+```bash
+shfmt -f . | xargs shellcheck
+```
+
+```bash
+actionlint
+```
+
+to fix formatting:
+
+```bash
+shfmt -w .
 ```

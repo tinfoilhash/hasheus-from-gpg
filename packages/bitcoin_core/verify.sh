@@ -65,9 +65,9 @@ releases=$(
   set -o pipefail
 
   curl -fsS --max-time 60 https://bitcoincore.org/en/releasesrss.xml \
-  | xmllint --xpath '//item/title/text()|//item/pubDate/text()' - \
-  | paste - - \
-  | jaq -Rn '[inputs | split("\t") as [$name, $published_at] | { name: $name, version: $name[13:], published_at: $published_at | strptime("%a, %d %b %Y %H:%M:%S %z") | strftime("%Y-%m-%dT%H:%M:%S%z") }]'
+    | xmllint --xpath '//item/title/text()|//item/pubDate/text()' - \
+    | paste - - \
+    | jaq -Rn '[inputs | split("\t") as [$name, $published_at] | { name: $name, version: $name[13:], published_at: $published_at | strptime("%a, %d %b %Y %H:%M:%S %z") | strftime("%Y-%m-%dT%H:%M:%S%z") }]'
 ) || exit 1
 
 echo '----- checking for new releases'
@@ -100,7 +100,7 @@ while IFS=',' read -r name version published_at <&3; do
 
   download_file "$version_bin_dir_url/$shasum_filename" || exit 1
 
-  shasum_manifest=$(<"$shasum_filename")
+  shasum_manifest=$(< "$shasum_filename")
 
   echo '------- downloading gpg signatures'
 

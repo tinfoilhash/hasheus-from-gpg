@@ -7,8 +7,11 @@ output_filename=''
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    -o) output_filename="$2"; shift ;;
-    --connect-timeout|--max-time|--speed-limit|--speed-time) shift ;;
+    -o)
+      output_filename="$2"
+      shift
+      ;;
+    --connect-timeout | --max-time | --speed-limit | --speed-time) shift ;;
     -*) ;;
     *) url="$1" ;;
   esac

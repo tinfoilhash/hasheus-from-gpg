@@ -144,9 +144,9 @@ verify_from_github() {
     local shasum_manifest
 
     if [ "$is_shasum_signature_detached" = true ]; then
-      shasum_manifest=$(<"$shasum_filename")
+      shasum_manifest=$(< "$shasum_filename")
     else
-      shasum_manifest=$(gpg --decrypt "$shasum_signature_filename" 2>/dev/null)
+      shasum_manifest=$(gpg --decrypt "$shasum_signature_filename" 2> /dev/null)
     fi
 
     # Download each file only after the signature verifies and only if it isn't published yet, since a release can be
