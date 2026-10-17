@@ -4,13 +4,13 @@ notes for coding agents working in this repo. the [readme](README.md) covers set
 
 ## what it does
 
-each package script checks a project's new releases: it downloads the release's hash manifest and gpg signatures, verifies the signatures against the package's listed keys, then downloads each file, checks its hash, and publishes a nip-94 (kind 1063) event for it to the relay. the last release checked is recorded so the next run starts after it.
+each package script checks a project's new releases: it downloads the release's hash manifest and gpg signatures, verifies the signatures against the package's listed keys, then downloads each file, checks its hash, and publishes a nip-94 (kind 1063) event for it to the relay. projects that sign each file instead of a manifest have each file checked against its own signature. the last release checked is recorded so the next run starts after it.
 
 ## layout
 
 - `common/common.sh`: shared steps (dependency and key checks, state, signature verification, relay queries, publishing, downloads).
-- `common/github.sh`: the flow for packages that publish on github releases (`verify_from_github`).
-- `packages/<name>/verify.sh`: one script per package. most are a few lines of config for `verify_from_github`; bitcoin core and coldcard have their own flows.
+- `common/github.sh`: the flows for packages that publish on github releases: `verify_from_github` for a signed manifest, and `verify_signed_files_from_github` for a signature on each file. both run each new release through `verify_new_releases`.
+- `packages/<name>/verify.sh`: one script per package. most are a few lines of config for one of the github flows; bitcoin core and coldcard have their own flows.
 - `verify_all.sh`: runs every package script.
 - `check_keys.sh`: audits the listed keys, and imports them with `--import`.
 - `test/`: the [bats](https://github.com/bats-core/bats-core) suite, with fake `gh`, `nak`, and `curl` in `test/fakes`.
@@ -29,16 +29,16 @@ each package script checks a project's new releases: it downloads the release's 
 
 ## rules the code keeps
 
-- **fail closed.** a release that fails its signature check, or a file that fails its hash check, stops the package's run without being recorded, so it's retried. a download or relay failure does the same. only a release with no manifest or signature file is skipped and recorded.
+- **fail closed.** a release that fails its signature check, or a file that fails its hash check, stops the package's run without being recorded, so it's retried. a download or relay failure does the same. only a release with no manifest or signature file (or, signing each file, no signed files) is skipped and recorded.
 - **a release is recorded only after all of its files are published or skipped.** never write state before that.
 - **a signature counts only if** it's from a listed key (by primary or signing subkey fingerprint), the key isn't revoked, and it was made before the key's expiry date. see `verify_gpg_signature`.
 - **remote data is untrusted.** release names and dates come from the projects' sites and apis: pass them to jaq with `--arg`, never interpolate them into a program; never use a release name as a directory (each release downloads into a fresh `mktemp` directory); and validate dates before use (`is_valid_published_at`). the state file is parsed, never sourced.
 - **don't hide failures.** split `local x; x=$(…) || exit 1`, since `local x=$(…)` discards the exit status, and use `set -o pipefail` inside a `$(…)` when a pipeline's earlier commands can fail.
-- **loops over releases and manifest lines read from fd 3 and 4** (`while read … <&3; do …; done 3<<< "$list"`), so they run in the main shell (`exit` stops the script) and nothing inside can read the list from stdin.
+- **loops over releases and their files read from fd 3 and 4** (`while read … <&3; do …; done 3<<< "$list"`), so they run in the main shell (`exit` stops the script) and nothing inside can read the list from stdin.
 
 ## adding or changing a package
 
-- for a github package, copy an existing script like `packages/sparrow/verify.sh` and set `package_name`, `repo`, the manifest and signature file name patterns (`{{NAME}}` is the release tag, or use a function, like `packages/liana/verify.sh`), and `key_fingerprints`. `package_name` is the name of the package's state file, so a copied script that keeps the old one overwrites that package's state.
+- for a github package, copy an existing script like `packages/sparrow/verify.sh` and set `package_name`, `repo`, the manifest and signature file name patterns (`{{NAME}}` is the release tag, or use a function, like `packages/liana/verify.sh`), and `key_fingerprints`. for a project that signs each file instead, call `verify_signed_files_from_github` with the signatures' suffix (like `.asc`) in place of the patterns. `package_name` is the name of the package's state file, so a copied script that keeps the old one overwrites that package's state.
 - add a test to `test/packages.bats` with a release named the way the project actually names its files, so a typo in a pattern fails.
 
 ## keys
