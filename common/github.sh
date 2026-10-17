@@ -180,6 +180,13 @@ verify_from_github() {
 
       echo "------- processing file: $filename"
 
+      # some manifests, like alby hub's, list themselves, hashed before they
+      # were written, so that entry can never match.
+      if [ "$filename" = "$shasum_filename" ]; then
+        echo 'file is the manifest itself, skipping'
+        continue
+      fi
+
       local release_asset
       release_asset=$(jaq -r --arg filename "$filename" '
         .assets[]

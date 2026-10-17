@@ -44,6 +44,12 @@ run_release() {
     sed -i.bak 's/  / /' "$BATS_TEST_TMPDIR/hashes"
   fi
 
+  # some, like alby hub, list the manifest itself with an empty file's hash.
+  if [ -n "${SELF_LISTED_MANIFEST:-}" ]; then
+    shasum -a 256 /dev/null | sed "s| .*|  ./$manifest|" \
+      >> "$BATS_TEST_TMPDIR/hashes"
+  fi
+
   if [ "$manifest" = "$signature" ]; then
     sign_clear signer "$BATS_TEST_TMPDIR/hashes" "$signature"
   else
@@ -69,6 +75,15 @@ run_release() {
     amber-fdroid-universal-v6.6.9.apk
   [ "$status" -eq 0 ]
   [ "$(published)" = 'amber-universal-v6.6.9.apk' ]
+}
+
+@test 'alby hub' {
+  SELF_LISTED_MANIFEST=1 run_release alby_hub v1.24.3 \
+    manifest.txt manifest.txt.asc albyhub-Server-Linux-aarch64.tar.bz2 \
+    manifest-rolznz.txt.asc
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'file is the manifest itself, skipping'* ]]
+  [ "$(published)" = 'albyhub-Server-Linux-aarch64.tar.bz2' ]
 }
 
 @test 'bitcoin knots' {
