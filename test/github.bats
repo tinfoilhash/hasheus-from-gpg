@@ -1,5 +1,8 @@
 #!/usr/bin/env bats
 
+# Each test runs in its own subshell, so exporting fixture paths inside a test is intended.
+# shellcheck disable=SC2030,SC2031
+
 # shellcheck source=test/test_helper.bash
 source "$BATS_TEST_DIRNAME/test_helper.bash"
 
@@ -232,6 +235,30 @@ EOF
   [ "$(published)" = 'app-v1.zip' ]
   [ "$(state_of test)" = '2026-01-01T00:00:00Z' ]
   [ -z "$(leftover_files test)" ]
+}
+
+@test 'retries a relay query that fails' {
+  write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
+  export FAKE_NAK_REQ_FAILURES="$BATS_TEST_TMPDIR/failures"
+  echo 2 > "$FAKE_NAK_REQ_FAILURES"
+
+  run_package clearsigned
+
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'app-v1.zip app-v2.zip' ]
+}
+
+@test 'exits instead of publishing when the relay cannot be queried' {
+  write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
+  export FAKE_NAK_REQ_FAILURES="$BATS_TEST_TMPDIR/failures"
+  echo 3 > "$FAKE_NAK_REQ_FAILURES"
+
+  run_package clearsigned
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'relay query failed, exiting'* ]]
+  [ -z "$(published)" ]
+  [ -z "$(state_of test)" ]
 }
 
 @test 'publishes and records nothing in a dry run' {

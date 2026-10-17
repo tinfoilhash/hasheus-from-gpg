@@ -144,9 +144,22 @@ verify_gpg_signature() {
 is_published_to_verify() {
   local hash="$1"
 
-  nak req -q -k 1063 -a "$npub_hex" -t x="$hash" "$relay" < /dev/null 2>&1 \
-  | grep -v "filter does not match" \
-  | grep -Fq "$hash"
+  # About 1 in 20 queries fails to reach the relay. Treating that as "not published" would publish a duplicate, so
+  # retry, then stop the run.
+  local attempt
+  for attempt in 1 2 3; do
+    local output
+
+    if output=$(nak req -q -k 1063 -a "$npub_hex" -t x="$hash" "$relay" < /dev/null 2>&1); then
+      grep -v "filter does not match" <<< "$output" | grep -Fq "$hash"
+      return
+    fi
+
+    sleep "$attempt"
+  done
+
+  echo 'relay query failed, exiting'
+  exit 1
 }
 
 publish_to_verify() {

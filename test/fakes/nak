@@ -1,12 +1,18 @@
 #!/usr/bin/env bash
 
-# Records published events in $FAKE_NAK_LOG ("<hash> <filename>" per line) and answers queries from it.
+# Records published events in $FAKE_NAK_LOG ("<hash> <filename>" per line) and answers queries from it. Queries fail
+# like an unreachable relay while $FAKE_NAK_REQ_FAILURES (a file holding a count) is above 0.
 
 case "$1" in
   key)
     printf '%064d\n' 0
     ;;
   req)
+    if [ -n "${FAKE_NAK_REQ_FAILURES:-}" ] && [ "$(cat "$FAKE_NAK_REQ_FAILURES")" -gt 0 ]; then
+      echo $(( $(cat "$FAKE_NAK_REQ_FAILURES") - 1 )) > "$FAKE_NAK_REQ_FAILURES"
+      exit 3
+    fi
+
     for arg in "$@"; do
       case "$arg" in
         x=*) hash="${arg#x=}" ;;
