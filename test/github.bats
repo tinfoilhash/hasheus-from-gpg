@@ -362,6 +362,32 @@ EOF
   [ "$(published)" = 'app-v1.zip app-v2.zip' ]
 }
 
+@test 'retries a publish that fails instead of stopping' {
+  write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
+  local failures="$BATS_TEST_TMPDIR/failures"
+  echo 2 > "$failures"
+
+  FAKE_NAK_EVENT_FAILURES="$failures" run_package clearsigned
+
+  [ "$status" -eq 0 ]
+  [ "$(grep -c 'publish failed (attempt' <<< "$output")" -eq 2 ]
+  published_is app-v1.zip app-v2.zip
+  [ "$(state_of test)" = '2026-02-01T00:00:00Z' ]
+}
+
+@test 'does not republish a failed publish that reached the relay' {
+  write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
+  local failures="$BATS_TEST_TMPDIR/failures"
+  echo 1 > "$failures"
+
+  FAKE_NAK_EVENT_FAILURES="$failures" FAKE_NAK_EVENT_LANDS=1 \
+    run_package clearsigned
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'event was published after all'* ]]
+  [ "$(wc -l < "$FAKE_NAK_LOG")" -eq 2 ]
+}
+
 @test 'exits instead of publishing when the relay cannot be queried' {
   write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
   local failures="$BATS_TEST_TMPDIR/failures"
