@@ -240,11 +240,18 @@ publish_file() {
   local content_type="${3:-}"
   local size="${4:-}"
 
-  local hash
-  read -r hash _ <<< "$shasum_line"
+  local hash filename_shasum
+  read -r hash filename_shasum <<< "$shasum_line"
 
   local filename
   filename=$(manifest_filename "$shasum_line")
+
+  # shasum only accepts two spaces (or " *" for binary mode) between the hash
+  # and the name, and some manifests, like amber's, use one.
+  local check_line="$hash  $filename_shasum"
+  if [[ "$filename_shasum" == \** ]]; then
+    check_line="$hash $filename_shasum"
+  fi
 
   if is_published_to_verify "$hash"; then
     echo 'file already verified, skipping'
@@ -269,7 +276,7 @@ publish_file() {
   echo "content type: $content_type"
   echo "size: $size"
 
-  if shasum --check --status <<< "$shasum_line"; then
+  if shasum --check --status <<< "$check_line"; then
     echo 'verified: yes'
   else
     echo 'verified: no'

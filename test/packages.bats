@@ -39,6 +39,11 @@ run_release() {
   echo "$asset" > "$asset"
   shasum -a 256 "$asset" > "$BATS_TEST_TMPDIR/hashes"
 
+  # some projects, like amber, put one space between the hash and the name.
+  if [ -n "${ONE_SPACE_MANIFEST:-}" ]; then
+    sed -i.bak 's/  / /' "$BATS_TEST_TMPDIR/hashes"
+  fi
+
   if [ "$manifest" = "$signature" ]; then
     sign_clear signer "$BATS_TEST_TMPDIR/hashes" "$signature"
   else
@@ -56,6 +61,14 @@ run_release() {
     > "$FAKE_GH_ROOT/releases.json"
 
   run "$repo_dir/packages/$package_name/verify.sh"
+}
+
+@test 'amber' {
+  ONE_SPACE_MANIFEST=1 run_release amber v6.6.9 \
+    manifest-v6.6.9.txt manifest-v6.6.9.txt.sig amber-universal-v6.6.9.apk \
+    amber-fdroid-universal-v6.6.9.apk
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'amber-universal-v6.6.9.apk' ]
 }
 
 @test 'bitcoin knots' {
