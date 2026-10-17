@@ -155,6 +155,13 @@ run_signed_files_release() {
   [ "$(published)" = 'bitcoin-29.4.2.knots20260508-x86_64-linux-gnu.tar.gz' ]
 }
 
+@test 'bitcoin safe' {
+  run_signed_files_release bitcoin_safe 2.1.3 .asc \
+    Bitcoin-Safe-2.1.3-x86_64.AppImage.tar.gz
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'Bitcoin-Safe-2.1.3-x86_64.AppImage.tar.gz' ]
+}
+
 @test 'blockstream green' {
   run_release blockstream_green release_3.6.0 SHA256SUMS.asc SHA256SUMS.asc \
     Blockstream-x86_64.AppImage Blockstream-arm64.dmg
