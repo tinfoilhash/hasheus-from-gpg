@@ -19,7 +19,7 @@ shasum_filename_pattern() {
   local name="$1"
 
   # Remove "v" before version number.
-  local name_without_v=$(echo "$name" | sed 's/v\([0-9]\)/\1/g')
+  local name_without_v=$(sed 's/v\([0-9]\)/\1/g' <<< "$name")
 
   echo "liana-$name_without_v-shasums.txt"
 }

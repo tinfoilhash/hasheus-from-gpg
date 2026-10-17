@@ -36,15 +36,18 @@ check_gpg_keys "${key_fingerprints[@]}"
 echo '----- getting list of releases'
 
 releases=$(
+  # Fail if any command fails, not just the last, so a failed fetch isn't read as no new releases.
+  set -o pipefail
+
   curl -fsS --max-time 60 https://bitcoincore.org/en/releasesrss.xml \
   | xmllint --xpath '//item/title/text()|//item/pubDate/text()' - \
   | paste - - \
   | jaq -Rn '[inputs | split("\t") as [$name, $published_at] | { name: $name, version: $name[13:], published_at: $published_at | strptime("%a, %d %b %Y %H:%M:%S %z") | strftime("%Y-%m-%dT%H:%M:%S%z") }]'
-)
+) || exit 1
 
 echo '----- checking for new releases'
 
-new_releases=$(echo "$releases" | jaq -r --arg since "$last_release_published_at" --argjson limit "$limit" 'map(select(.published_at > $since)) | sort_by(.published_at) | reverse | [limit($limit; .[])] | reverse | .[] | "\(.name),\(.version),\(.published_at)"')
+new_releases=$(jaq -r --arg since "$last_release_published_at" --argjson limit "$limit" 'map(select(.published_at > $since)) | sort_by(.published_at) | reverse | [limit($limit; .[])] | reverse | .[] | "\(.name),\(.version),\(.published_at)"' <<< "$releases")
 new_releases_count=$(printf '%s' "$new_releases" | grep -c '^')
 
 echo "new releases found: $new_releases_count"
@@ -53,9 +56,9 @@ if [ "$new_releases_count" -eq 0 ]; then
   exit
 fi
 
-echo "$new_releases" | while IFS=',' read -r name version published_at; do
+while IFS=',' read -r name version published_at; do
   echo "- $name ($published_at)"
-done
+done <<< "$new_releases"
 
 # Read from a separate file descriptor so the loop runs in this shell (letting `exit` stop the script) and nothing
 # inside it can consume the list.
