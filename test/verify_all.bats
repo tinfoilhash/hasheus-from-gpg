@@ -9,7 +9,7 @@ setup() {
   cp "$PROJECT_DIR/verify_all.sh" "$repo_dir/"
 }
 
-# Writes a package script that reads all of stdin, like a command that would consume the list of scripts.
+# writes a package script that reads all of stdin, like a command that would consume the list of scripts.
 write_package() {
   local package_name="$1"
   local exit_status="$2"
@@ -54,4 +54,13 @@ EOF
 
   [ "$status" -eq 0 ]
   [[ "$output" == *'ran a'* ]]
+}
+
+@test 'exits 1 when no packages are found' {
+  mkdir -p "$repo_dir/packages"
+
+  run "$repo_dir/verify_all.sh"
+
+  [ "$status" -eq 1 ]
+  [ "$output" = 'no packages found, exiting' ]
 }

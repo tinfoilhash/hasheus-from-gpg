@@ -1,11 +1,19 @@
 #!/usr/bin/env bash
 
-# Records published events in $FAKE_NAK_LOG ("<hash> <filename>" per line) and answers queries from it. Queries fail
+# records published events in $FAKE_NAK_LOG ("<hash> <filename>" per line) and answers queries from it. queries fail
 # like an unreachable relay while $FAKE_NAK_REQ_FAILURES (a file holding a count) is above 0.
 
 case "$1" in
   key)
     printf '%064d\n' 0
+    ;;
+  decode)
+    # like nak, print the hex key for an npub, or an error on stdout (with exit 0) for anything else.
+    if [[ "$2" =~ ^npub1[02-9ac-hj-np-z]{58}$ ]]; then
+      printf '%064d\n' 1
+    else
+      echo "couldn't decode input '$2'"
+    fi
     ;;
   req)
     if [ -n "${FAKE_NAK_REQ_FAILURES:-}" ] && [ "$(cat "$FAKE_NAK_REQ_FAILURES")" -gt 0 ]; then

@@ -3,13 +3,13 @@
 # shellcheck source=test/test_helper.bash
 source "$BATS_TEST_DIRNAME/test_helper.bash"
 
-PUBKEY_HEX='46fc4feba53427642bf90f3a9addad6288c77f93a756692c9988794fbd97a5b3'
+TEST_NPUB='npub1gm7yl6a9xsnkg2lepuaf4hddv2yvwlun5atxjtye3pu5l0vh5kes8ef4r5'
 
 setup() {
   create_repo
   # shellcheck source=../common/common.sh
   source "$repo_dir/common/common.sh"
-  unset NSEC PUBKEY DRY_RUN
+  unset NSEC NPUB DRY_RUN
 }
 
 @test 'exits when a dependency is missing' {
@@ -40,22 +40,36 @@ setup() {
   [[ "$npub_hex" =~ ^[0-9a-f]{64}$ ]]
 }
 
-@test 'accepts PUBKEY instead of NSEC in a dry run' {
-  DRY_RUN=1 PUBKEY="$PUBKEY_HEX" check_dependencies
+@test 'accepts NPUB instead of NSEC in a dry run' {
+  DRY_RUN=1 NPUB="$TEST_NPUB" check_dependencies
 
-  [ "$npub_hex" = "$PUBKEY_HEX" ]
+  [ "$npub_hex" = "$(printf '%064d' 1)" ]
 }
 
-@test 'requires NSEC outside a dry run, even with PUBKEY' {
-  PUBKEY="$PUBKEY_HEX" run check_dependencies
+@test 'requires NSEC outside a dry run, even with NPUB' {
+  NPUB="$TEST_NPUB" run check_dependencies
 
   [ "$status" -eq 1 ]
   [ "$output" = '$NSEC not set, exiting' ]
 }
 
-@test 'rejects an invalid PUBKEY' {
-  DRY_RUN=1 PUBKEY='npub1notahexkey' run check_dependencies
+@test 'rejects an invalid NPUB' {
+  DRY_RUN=1 NPUB='npub1notvalid' run check_dependencies
 
   [ "$status" -eq 1 ]
-  [[ "$output" == *'$PUBKEY is invalid, exiting' ]]
+  [[ "$output" == *'$NPUB is invalid, exiting' ]]
+}
+
+@test 'treats any DRY_RUN value but 0 as a dry run' {
+  local value
+  for value in 1 true yes; do
+    DRY_RUN="$value" run is_dry_run
+    [ "$status" -eq 0 ]
+  done
+
+  DRY_RUN=0 run is_dry_run
+  [ "$status" -eq 1 ]
+
+  DRY_RUN='' run is_dry_run
+  [ "$status" -eq 1 ]
 }

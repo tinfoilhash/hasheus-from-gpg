@@ -18,7 +18,7 @@ matching_asset_names() {
 
   local asset_name
   while IFS= read -r asset_name; do
-    # Unquoted so the pattern matches as a glob.
+    # unquoted so the pattern matches as a glob.
     # shellcheck disable=SC2053
     if [[ "$asset_name" == $pattern ]]; then
       echo "$asset_name"
@@ -71,7 +71,7 @@ verify_from_github() {
     echo "- $name ($published_at)"
   done <<< "$new_releases"
 
-  # Read from a separate file descriptor so the loop runs in this shell (letting `exit` stop the script) and nothing
+  # read from a separate file descriptor so the loop runs in this shell (letting `exit` stop the script) and nothing
   # inside it can consume the list.
   while IFS=',' read -r name published_at <&3; do
     echo "----- new release: $name ($published_at)"
@@ -82,9 +82,10 @@ verify_from_github() {
     release_assets=$(gh release view "$name" --repo "$repo" --json assets) || exit 1
 
     local asset_names
-    asset_names=$(jaq -r '.assets[].name' <<< "$release_assets" | sort) || exit 1
+    asset_names=$(jaq -r '.assets[].name' <<< "$release_assets") || exit 1
+    asset_names=$(sort <<< "$asset_names")
 
-    start_release
+    start_release "$published_at"
 
     echo '------- downloading hashes and gpg signatures'
 
@@ -97,7 +98,7 @@ verify_from_github() {
       continue
     fi
 
-    # One match per signer, like lnd's manifest-<signer>-<tag>.sig.
+    # one match per signer, like lnd's manifest-<signer>-<tag>.sig.
     local shasum_signature_filenames=()
     local shasum_signature_filename
     while IFS= read -r shasum_signature_filename; do
@@ -135,10 +136,11 @@ verify_from_github() {
       fi
     done
 
+    # exit without recording the release, so it's tried again once the signer's key is listed or the signature is
+    # fixed.
     if [ "$is_shasum_signature_verified" = false ]; then
-      echo 'gpg signatures verification failed, skipping'
-      complete_release "$package_name" "$published_at"
-      continue
+      echo 'gpg signatures verification failed, exiting'
+      exit 1
     fi
 
     local shasum_manifest
@@ -149,8 +151,8 @@ verify_from_github() {
       shasum_manifest=$(gpg --decrypt "$shasum_signature_filename" 2> /dev/null)
     fi
 
-    # Download each file only after the signature verifies and only if it isn't published yet, since a release can be
-    # several GB.
+    # download each file only after the signature verifies and only if it isn't published yet, since a release can be
+    # several gb.
     local shasum_line
     while IFS= read -r shasum_line <&4; do
       local filename
@@ -161,7 +163,7 @@ verify_from_github() {
       local release_asset
       release_asset=$(jaq -r --arg filename "$filename" '.assets[] | select(.name == $filename) | "\(.url),\(.contentType),\(.size)"' <<< "$release_assets") || exit 1
 
-      # Manifests can also list files that aren't release assets, like the binaries inside lnd's archives.
+      # manifests can also list files that aren't release assets, like the binaries inside lnd's archives.
       if [ -z "$release_asset" ]; then
         echo 'file is not a release asset, skipping'
         continue

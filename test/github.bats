@@ -3,8 +3,8 @@
 # shellcheck source=test/test_helper.bash
 source "$BATS_TEST_DIRNAME/test_helper.bash"
 
-# Writes a release whose manifest has one detached signature per signer, like lnd. The first signature (by file
-# name) is from a key that isn't in the keyring and the second from one that isn't listed. Like lnd's, the manifest
+# writes a release whose manifest has one detached signature per signer, like lnd. the first signature (by file
+# name) is from a key that isn't in the keyring and the second from one that isn't listed. like lnd's, the manifest
 # also lists a file from inside the archive that isn't a release asset.
 make_release_with_signature_per_signer() {
   local release_dir="$1/$2"
@@ -21,7 +21,7 @@ make_release_with_signature_per_signer() {
   sign_detached signer "manifest-$tag.txt" "manifest-zzz-$tag.sig"
 }
 
-# Writes a release with a clearsigned manifest in binary mode (`*filename`), like wasabi.
+# writes a release with a clearsigned manifest in binary mode (`*filename`), like wasabi.
 make_release_with_clearsigned_manifest() {
   local release_dir="$1/$2"
   local tag="$2"
@@ -35,7 +35,7 @@ make_release_with_clearsigned_manifest() {
   rm ../manifest
 }
 
-# Writes a release whose file names drop the tag's "v", like liana.
+# writes a release whose file names drop the tag's "v", like liana.
 make_release_with_versioned_manifest() {
   local release_dir="$1/$2"
   local version="${2#v}"
@@ -78,7 +78,7 @@ setup_file() {
   make_release_with_versioned_manifest "$root/versioned/github.example" v2
   write_releases "$root/versioned/github.example" v1=2026-01-01T00:00:00Z v2=2026-02-01T00:00:00Z
 
-  # A release with only an asset, one with hashes but no signature, and one whose asset changed after it was hashed.
+  # a release with only an asset, one with hashes but no signature, and one whose asset changed after it was hashed.
   mkdir -p "$root/no-hashes/github.example/v1"
   echo 'app v1' > "$root/no-hashes/github.example/v1/app-v1.zip"
   write_releases "$root/no-hashes/github.example" v1=2026-01-01T00:00:00Z
@@ -104,7 +104,7 @@ setup() {
   create_repo
 }
 
-# Writes a package script for the fake repo, plus any shell code (such as pattern functions) given on stdin.
+# writes a package script for the fake repo, plus any shell code (such as pattern functions) given on stdin.
 write_package() {
   local shasum_filename_pattern="$1"
   local shasum_signature_filename_pattern="$2"
@@ -136,7 +136,7 @@ EOF
   chmod +x "$repo_dir/packages/test/verify.sh"
 }
 
-# Serves a fixture's releases through the fake gh, and their assets through the fake curl.
+# serves a fixture's releases through the fake gh, and their assets through the fake curl.
 run_package() {
   export FAKE_CURL_ROOT="$BATS_FILE_TMPDIR/$1"
   export FAKE_GH_ROOT="$FAKE_CURL_ROOT/github.example"
@@ -199,15 +199,16 @@ EOF
   [ "$(published)" = 'liana-1.tar.gz liana-2.tar.gz' ]
 }
 
-@test 'skips and records a release that is not signed by a listed key' {
+@test 'exits without recording a release that is not signed by a listed key' {
   write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
 
   run_package unlisted-signer
 
-  [ "$status" -eq 0 ]
-  [[ "$output" == *'gpg signatures verification failed, skipping'* ]]
-  [ "$(published)" = 'app-v2.zip' ]
-  [ "$(state_of test)" = '2026-02-01T00:00:00Z' ]
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'gpg signatures verification failed, exiting'* ]]
+  [ -z "$(published)" ]
+  [ -z "$(state_of test)" ]
+  [ -z "$(leftover_files test)" ]
 }
 
 @test 'skips and records a release with no hashes file' {
@@ -232,14 +233,15 @@ EOF
   [ "$(state_of test)" = '2026-01-01T00:00:00Z' ]
 }
 
-@test 'does not publish a file that fails its hash check' {
+@test 'exits without publishing or recording a file that fails its hash check' {
   write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
 
   run_package tampered
 
-  [ "$status" -eq 0 ]
-  [[ "$output" == *'file not verified, skipping'* ]]
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'file not verified, exiting'* ]]
   [ -z "$(published)" ]
+  [ -z "$(state_of test)" ]
 }
 
 @test 'checks only releases published since the last run' {
@@ -279,14 +281,17 @@ EOF
   [ -z "$(leftover_files test)" ]
 }
 
-@test 'retries a relay query that fails' {
+@test 'retries a relay query that fails instead of republishing' {
   write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
+  run_package clearsigned
+  rm "$XDG_CONFIG_HOME/verify-from-gpg/test"
   local failures="$BATS_TEST_TMPDIR/failures"
   echo 2 > "$failures"
 
   FAKE_NAK_REQ_FAILURES="$failures" run_package clearsigned
 
   [ "$status" -eq 0 ]
+  [ "$(grep -c 'relay query failed (attempt' <<< "$output")" -eq 2 ]
   [ "$(published)" = 'app-v1.zip app-v2.zip' ]
 }
 
@@ -303,10 +308,11 @@ EOF
   [ -z "$(state_of test)" ]
 }
 
-@test 'publishes and records nothing in a dry run' {
+@test 'publishes and records nothing in a dry run with only an npub' {
   write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
+  unset NSEC
 
-  DRY_RUN=1 run_package clearsigned
+  DRY_RUN=1 NPUB='npub1gm7yl6a9xsnkg2lepuaf4hddv2yvwlun5atxjtye3pu5l0vh5kes8ef4r5' run_package clearsigned
 
   [ "$status" -eq 0 ]
   [[ "$output" == *'dry run: would publish app-v1.zip'* ]]

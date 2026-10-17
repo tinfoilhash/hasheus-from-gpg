@@ -3,7 +3,7 @@
 # shellcheck source=test/test_helper.bash
 source "$BATS_TEST_DIRNAME/test_helper.bash"
 
-# Writes a fake bitcoincore.org with releases 30.0 and 30.1, each with two files. 30.1 can be signed by another key
+# writes a fake bitcoincore.org with releases 30.0 and 30.1, each with two files. 30.1 can be signed by another key
 # or have a file changed after it was hashed.
 make_site() {
   local root="$1"
@@ -81,19 +81,21 @@ downloaded_binaries() {
   [ "$(downloaded_binaries)" = 'bitcoin-30.0.zip bitcoin-30.1.tar.gz' ]
 }
 
-@test 'downloads no files from a release that is not signed by a listed key' {
+@test 'exits without downloading from a release that is not signed by a listed key' {
   FAKE_CURL_ROOT="$BATS_FILE_TMPDIR/site-unlisted-signer" run "$repo_dir/packages/bitcoin_core/verify.sh"
 
-  [ "$status" -eq 0 ]
+  [ "$status" -eq 1 ]
   [ "$(downloaded_binaries)" = 'bitcoin-30.0.tar.gz bitcoin-30.0.zip' ]
   [ "$(published)" = 'bitcoin-30.0.tar.gz bitcoin-30.0.zip' ]
+  [ "$(state_of bitcoin_core)" = '2026-01-01T00:00:00+0000' ]
 }
 
-@test 'does not publish a file that fails its hash check' {
+@test 'exits without publishing or recording a file that fails its hash check' {
   FAKE_CURL_ROOT="$BATS_FILE_TMPDIR/site-tampered" run "$repo_dir/packages/bitcoin_core/verify.sh"
 
-  [ "$status" -eq 0 ]
+  [ "$status" -eq 1 ]
   [ "$(published)" = 'bitcoin-30.0.tar.gz bitcoin-30.0.zip bitcoin-30.1.tar.gz' ]
+  [ "$(state_of bitcoin_core)" = '2026-01-01T00:00:00+0000' ]
 }
 
 @test 'exits 1 when the release feed cannot be fetched' {

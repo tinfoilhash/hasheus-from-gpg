@@ -13,7 +13,7 @@ package_name='bitcoin_core'
 
 source_state "$package_name"
 
-# Keys from: https://github.com/bitcoin-core/guix.sigs/tree/main/builder-keys
+# keys from: https://github.com/bitcoin-core/guix.sigs/tree/main/builder-keys
 key_fingerprints=(
   '982A193E3CE0EED535E09023188CBB2648416AD5' # https://raw.githubusercontent.com/bitcoin-core/guix.sigs/refs/heads/main/builder-keys/0xb10c.gpg
   '152812300785C96444D3334D17565732E08E5E41' # https://raw.githubusercontent.com/bitcoin-core/guix.sigs/refs/heads/main/builder-keys/achow101.gpg
@@ -61,7 +61,7 @@ check_gpg_keys "${key_fingerprints[@]}"
 echo '----- getting list of releases'
 
 releases=$(
-  # Fail if any command fails, not just the last, so a failed fetch isn't read as no new releases.
+  # fail if any command fails, not just the last, so a failed fetch isn't read as no new releases.
   set -o pipefail
 
   curl -fsS --max-time 60 https://bitcoincore.org/en/releasesrss.xml \
@@ -72,7 +72,7 @@ releases=$(
 
 echo '----- checking for new releases'
 
-new_releases=$(jaq -r --arg since "$last_release_published_at" --argjson limit "$limit" 'map(select(.published_at > $since)) | sort_by(.published_at) | reverse | [limit($limit; .[])] | reverse | .[] | "\(.name),\(.version),\(.published_at)"' <<< "$releases") || exit 1
+new_releases=$(jaq -r --arg since "$last_release_published_at" --arg limit "$limit" 'map(select(.published_at > $since)) | sort_by(.published_at) | reverse | [limit($limit | tonumber; .[])] | reverse | .[] | "\(.name),\(.version),\(.published_at)"' <<< "$releases") || exit 1
 new_releases_count=$(printf '%s' "$new_releases" | grep -c '^')
 
 echo "new releases found: $new_releases_count"
@@ -85,14 +85,14 @@ while IFS=',' read -r name version published_at; do
   echo "- $name ($published_at)"
 done <<< "$new_releases"
 
-# Read from a separate file descriptor so the loop runs in this shell (letting `exit` stop the script) and nothing
+# read from a separate file descriptor so the loop runs in this shell (letting `exit` stop the script) and nothing
 # inside it can consume the list.
 while IFS=',' read -r name version published_at <&3; do
   echo "----- new release: $name ($published_at)"
 
   version_bin_dir_url="https://bitcoincore.org/bin/bitcoin-core-$version"
 
-  start_release
+  start_release "$published_at"
 
   echo '------- downloading hashes'
 
@@ -111,13 +111,12 @@ while IFS=',' read -r name version published_at <&3; do
   echo '------- verifying gpg signatures'
 
   if ! verify_gpg_signature "$shasum_signature_filename" "$shasum_filename" "${key_fingerprints[@]}"; then
-    echo 'gpg signatures verification failed, skipping'
-    complete_release "$package_name" "$published_at"
-    continue
+    echo 'gpg signatures verification failed, exiting'
+    exit 1
   fi
 
-  # Download each file only after the signature verifies and only if it isn't published yet, since a release is
-  # several GB.
+  # download each file only after the signature verifies and only if it isn't published yet, since a release is
+  # several gb.
   while IFS= read -r shasum_line <&4; do
     filename=$(manifest_filename "$shasum_line")
 

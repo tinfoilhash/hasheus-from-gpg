@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 
-# Runs each github package's real script, with its own file name patterns, against a release named the way that
-# project names its files. Only the key fingerprints are swapped for the test keys.
+# runs each github package's real script, with its own file name patterns, against a release named the way that
+# project names its files. only the key fingerprints are swapped for the test keys.
 
 # shellcheck source=test/test_helper.bash
 source "$BATS_TEST_DIRNAME/test_helper.bash"
@@ -14,8 +14,8 @@ teardown_file() {
   teardown_keyring
 }
 
-# Writes a fake release <tag> with the asset, its hashes in <manifest>, and <signature> over them. When the manifest
-# and signature are the same file, it's clearsigned. Any further arguments are extra assets that aren't hashed.
+# writes a fake release <tag> with the asset, its hashes in <manifest>, and <signature> over them. when the manifest
+# and signature are the same file, it's clearsigned. any further arguments are extra assets that aren't hashed.
 run_release() {
   local package_name="$1"
   local tag="$2"

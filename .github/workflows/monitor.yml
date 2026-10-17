@@ -1,6 +1,6 @@
 name: monitor
 
-# Checks the keys and every package against the live sources each day, without publishing anything, to catch upstream
+# checks the keys and every package against the live sources each day, without publishing anything, to catch upstream
 # changes (a new page layout, a new signer, an expired or removed key) when they happen.
 on:
   schedule:
@@ -13,10 +13,14 @@ permissions:
 jobs:
   monitor:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        # `shell: bash` adds pipefail, which the default shell doesn't.
+        shell: bash
     env:
       GH_TOKEN: ${{ github.token }}
-      # tinfoil hash's public key, to check what's already published.
-      PUBKEY: 46fc4feba53427642bf90f3a9addad6288c77f93a756692c9988794fbd97a5b3
+      # tinfoil hash's npub, to check what's already published.
+      NPUB: npub1gm7yl6a9xsnkg2lepuaf4hddv2yvwlun5atxjtye3pu5l0vh5kes8ef4r5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -41,7 +45,7 @@ jobs:
 
           exit "$status"
 
-      # Runs even when the key check finds problems, since it imports the keys this needs.
+      # runs even when the key check finds problems, since it imports the keys this needs.
       - name: dry run
         if: success() || failure()
         run: |
@@ -50,17 +54,18 @@ jobs:
           status=$?
           cat dry-run.log
 
-          skipped_count=$(grep -c 'gpg signatures verification failed' dry-run.log)
-
           {
             echo '## dry run'
-            echo "- releases skipped because no listed key signed them: $skipped_count"
+            echo "- releases not signed by a listed key: $(grep -c 'gpg signatures verification failed' dry-run.log)"
+            echo "- files that failed their hash check: $(grep -c 'file not verified' dry-run.log)"
+            echo "- releases skipped for a missing manifest or signature: $(grep -c 'file does not exist, skipping' dry-run.log)"
             echo "- files not published yet: $(grep -c 'dry run: would publish' dry-run.log)"
           } >> "$GITHUB_STEP_SUMMARY"
 
-          if [ "$skipped_count" -gt 0 ]; then
-            echo '::error::a release is not signed by any listed key'
-            status=1
+          # some releases are never signed, so a missing manifest or signature is a warning, not a failure. a renamed
+          # manifest shows up here too.
+          if grep -q 'file does not exist, skipping' dry-run.log; then
+            echo '::warning::a release was skipped for a missing manifest or signature'
           fi
 
           exit "$status"

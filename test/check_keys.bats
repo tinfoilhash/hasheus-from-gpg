@@ -8,18 +8,18 @@ KEYS_URL='https://raw.githubusercontent.com/owner/keys/main/keys'
 setup_file() {
   setup_keyring
 
-  # An expired key, made by pretending it's 2020.
+  # an expired key, made by pretending it's 2020.
   gpg_quiet --faked-system-time 20200101T000000! --quick-gen-key expired@test ed25519 sign 1y
 
-  # A revoked key, using the revocation certificate gpg saves when it makes a key.
+  # a revoked key, using the revocation certificate gpg saves when it makes a key.
   gpg_quiet --quick-gen-key revoked@test ed25519 sign never
   sed 's/^:-----/-----/' "$GNUPGHOME/openpgp-revocs.d/$(fingerprint_of revoked).rev" | gpg_quiet --import
 
-  # A key whose only signing subkey expired, made by pretending it's 2020.
+  # a key whose only signing subkey expired, made by pretending it's 2020.
   gpg_quiet --faked-system-time 20200101T000000! --quick-gen-key no-signing-key@test ed25519 cert never
   gpg_quiet --faked-system-time 20200101T000000! --quick-add-key "$(fingerprint_of no-signing-key)" ed25519 sign 1y
 
-  # A key that's only in the missing keyring, to be offered alongside "missing" in one file.
+  # a key that's only in the missing keyring, to be offered alongside "missing" in one file.
   GNUPGHOME="$MISSING_GNUPGHOME" gpg_quiet --quick-gen-key unwanted@test ed25519 sign never
 
   local keys_dir="$BATS_FILE_TMPDIR/site/raw.githubusercontent.com/owner/keys/main/keys"
@@ -32,13 +32,13 @@ setup_file() {
   gpg --armor --export revoked@test > "$BATS_FILE_TMPDIR/site/raw.githubusercontent.com/owner/keys/main/revoked.asc"
   gpg --armor --export no-signing-key@test > "$BATS_FILE_TMPDIR/site/raw.githubusercontent.com/owner/keys/main/no-signing-key.asc"
 
-  # A keyserver lookup, which has no file name.
+  # a keyserver lookup, which has no file name.
   mkdir -p "$BATS_FILE_TMPDIR/site/keyserver.example/pks"
   gpg --armor --export signer@test > "$BATS_FILE_TMPDIR/site/keyserver.example/pks/lookup?op=get&search=0x$(fingerprint_of signer)"
   gpg --armor --export stranger@test > "$keys_dir/stranger.asc"
   GNUPGHOME="$MISSING_GNUPGHOME" gpg --armor --export missing@test unwanted@test > "$keys_dir/missing.asc"
 
-  # The key folder's listing, as GitHub's contents API returns it.
+  # the key folder's listing, as github's contents api returns it.
   mkdir -p "$BATS_FILE_TMPDIR/api/repos/owner/keys/contents"
   local path
   for path in "$keys_dir"/*.asc; do
@@ -59,7 +59,7 @@ setup() {
   export FAKE_GH_ROOT="$BATS_FILE_TMPDIR"
 }
 
-# The tests share a keyring, so each one sets whether "missing" is imported.
+# the tests share a keyring, so each one sets whether "missing" is imported.
 import_missing_key() {
   GNUPGHOME="$MISSING_GNUPGHOME" gpg --export missing@test | gpg_quiet --import
 }
@@ -68,7 +68,7 @@ remove_missing_key() {
   gpg_quiet --delete-keys "$(GNUPGHOME="$MISSING_GNUPGHOME" fingerprint_of missing)" || true
 }
 
-# Writes a package script listing the given "<name>=<file in the key folder>" keys.
+# writes a package script listing the given "<name>=<file in the key folder>" keys.
 write_package() {
   mkdir -p "$repo_dir/packages/test"
   {
@@ -164,7 +164,7 @@ write_package() {
   [[ "$output" != *'README.md'* ]]
 }
 
-# These keys are at the repo's root, which isn't a key folder, so they're not compared with a folder listing.
+# these keys are at the repo's root, which isn't a key folder, so they're not compared with a folder listing.
 write_root_package() {
   mkdir -p "$repo_dir/packages/test"
   {
@@ -213,9 +213,29 @@ write_root_package() {
   printf "key_fingerprints=(\n  '%s' # https://keyserver.example/pks/lookup?op=get&search=0x%s\n)\n" "$fingerprint" "$fingerprint" \
     > "$repo_dir/packages/test/verify.sh"
 
-  # An empty keyring, so the key is reported as not imported.
-  GNUPGHOME=$(mktemp -d /tmp/verify-from-gpg-test.XXXXXX) run "$repo_dir/check_keys.sh"
+  # an empty keyring, so the key is reported as not imported.
+  local empty_gnupghome
+  empty_gnupghome=$(mktemp -d /tmp/verify-from-gpg-test.XXXXXX)
+
+  GNUPGHOME="$empty_gnupghome" run "$repo_dir/check_keys.sh"
+
+  GNUPGHOME="$empty_gnupghome" gpgconf --kill gpg-agent
+  rm -rf "${empty_gnupghome:?}"
 
   [ "$status" -eq 1 ]
   [[ "$output" == *"problem: keyserver.example (${fingerprint: -16}) isn't imported"* ]]
+}
+
+@test 'reports a key folder that cannot be listed' {
+  mkdir -p "$repo_dir/packages/test"
+  printf "key_fingerprints=(\n  '%s' # https://raw.githubusercontent.com/owner/unlisted-repo/main/keys/signer.asc\n)\n" \
+    "$(fingerprint_of signer)" > "$repo_dir/packages/test/verify.sh"
+  mkdir -p "$FAKE_CURL_ROOT/raw.githubusercontent.com/owner/unlisted-repo/main/keys"
+  cp "$FAKE_CURL_ROOT/raw.githubusercontent.com/owner/keys/main/keys/signer.asc" \
+    "$FAKE_CURL_ROOT/raw.githubusercontent.com/owner/unlisted-repo/main/keys/"
+
+  run "$repo_dir/check_keys.sh"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"problem: couldn't list owner/unlisted-repo/keys to check for unlisted keys"* ]]
 }
