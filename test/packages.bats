@@ -209,6 +209,14 @@ run_release() {
   [ "$(published)" = 'initial_firmware_v1.10.5.bin' ]
 }
 
+@test 'taproot assets' {
+  run_release taproot_assets v0.8.6 manifest-v0.8.6.txt \
+    manifest-roasbeef-v0.8.6.sig taproot-assets-linux-amd64-v0.8.6.tar.gz \
+    manifest-roasbeef-v0.8.6.sig.ots
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'taproot-assets-linux-amd64-v0.8.6.tar.gz' ]
+}
+
 @test 'wasabi' {
   run_release wasabi v2.8.4 SHA256SUMS.asc SHA256SUMS.asc \
     Wasabi-2.8.4-arm64.AppImage SHA256SUMS Wasabi-2.8.4-arm64.AppImage.asc
