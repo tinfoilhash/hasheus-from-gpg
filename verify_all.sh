@@ -6,7 +6,8 @@ status=0
 package_count=0
 
 while IFS= read -r -d '' script; do
-  # give each script its own empty stdin so nothing it runs can consume the list of scripts.
+  # give each script its own empty stdin so nothing it runs can consume the list
+  # of scripts.
   "$script" < /dev/null || status=1
   package_count=$((package_count + 1))
   echo

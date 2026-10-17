@@ -61,18 +61,39 @@ check_gpg_keys "${key_fingerprints[@]}"
 echo '----- getting list of releases'
 
 releases=$(
-  # fail if any command fails, not just the last, so a failed fetch isn't read as no new releases.
+  # fail if any command fails, not just the last, so a failed fetch isn't read
+  # as no new releases.
   set -o pipefail
 
   curl -fsS --max-time 60 https://bitcoincore.org/en/releasesrss.xml \
     | xmllint --xpath '//item/title/text()|//item/pubDate/text()' - \
     | paste - - \
-    | jaq -Rn '[inputs | split("\t") as [$name, $published_at] | { name: $name, version: $name[13:], published_at: $published_at | strptime("%a, %d %b %Y %H:%M:%S %z") | strftime("%Y-%m-%dT%H:%M:%S%z") }]'
+    | jaq -Rn '[
+      inputs
+      | split("\t") as [$name, $published_at]
+      | {
+        name: $name,
+        version: $name[13:],
+        published_at: $published_at
+          | strptime("%a, %d %b %Y %H:%M:%S %z")
+          | strftime("%Y-%m-%dT%H:%M:%S%z")
+      }
+    ]'
 ) || exit 1
 
 echo '----- checking for new releases'
 
-new_releases=$(jaq -r --arg since "$last_release_published_at" --arg limit "$limit" 'map(select(.published_at > $since)) | sort_by(.published_at) | reverse | [limit($limit | tonumber; .[])] | reverse | .[] | "\(.name),\(.version),\(.published_at)"' <<< "$releases") || exit 1
+new_releases=$(
+  jaq -r --arg since "$last_release_published_at" --arg limit "$limit" '
+    map(select(.published_at > $since))
+    | sort_by(.published_at)
+    | reverse
+    | [limit($limit | tonumber; .[])]
+    | reverse
+    | .[]
+    | "\(.name),\(.version),\(.published_at)"
+  ' <<< "$releases"
+) || exit 1
 new_releases_count=$(printf '%s' "$new_releases" | grep -c '^')
 
 echo "new releases found: $new_releases_count"
@@ -85,8 +106,8 @@ while IFS=',' read -r name version published_at; do
   echo "- $name ($published_at)"
 done <<< "$new_releases"
 
-# read from a separate file descriptor so the loop runs in this shell (letting `exit` stop the script) and nothing
-# inside it can consume the list.
+# read from a separate file descriptor so the loop runs in this shell (letting
+# `exit` stop the script) and nothing inside it can consume the list.
 while IFS=',' read -r name version published_at <&3; do
   echo "----- new release: $name ($published_at)"
 
@@ -110,13 +131,14 @@ while IFS=',' read -r name version published_at <&3; do
 
   echo '------- verifying gpg signatures'
 
-  if ! verify_gpg_signature "$shasum_signature_filename" "$shasum_filename" "${key_fingerprints[@]}"; then
+  if ! verify_gpg_signature "$shasum_signature_filename" "$shasum_filename" \
+    "${key_fingerprints[@]}"; then
     echo 'gpg signatures verification failed, exiting'
     exit 1
   fi
 
-  # download each file only after the signature verifies and only if it isn't published yet, since a release is
-  # several gb.
+  # download each file only after the signature verifies and only if it isn't
+  # published yet, since a release is several gb.
   while IFS= read -r shasum_line <&4; do
     filename=$(manifest_filename "$shasum_line")
 

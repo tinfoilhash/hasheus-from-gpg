@@ -1,7 +1,8 @@
 name: monitor
 
-# checks the keys and every package against the live sources each day, without publishing anything, to catch upstream
-# changes (a new page layout, a new signer, an expired or removed key) when they happen.
+# checks the keys and every package against the live sources each day, without
+# publishing anything, to catch upstream changes (a new page layout, a new
+# signer, an expired or removed key) when they happen.
 on:
   schedule:
     - cron: '0 15 * * *'
@@ -40,12 +41,14 @@ jobs:
 
           {
             echo '## keys'
-            grep -E '^  (problem|warning):' keys.log || echo 'no problems or warnings'
+            grep -E '^  (problem|warning):' keys.log \
+              || echo 'no problems or warnings'
           } >> "$GITHUB_STEP_SUMMARY"
 
           exit "$status"
 
-      # runs even when the key check finds problems, since it imports the keys this needs.
+      # runs even when the key check finds problems, since it imports the keys
+      # this needs.
       - name: dry run
         if: success() || failure()
         run: |
@@ -54,27 +57,36 @@ jobs:
           status=$?
           cat dry-run.log
 
-          # a failed signature or hash check stops that package's run, so these count packages, and a stopped package
-          # isn't checked past the release that stopped it.
+          # a failed signature or hash check stops that package's run, so these
+          # count packages, and a stopped package isn't checked past the release
+          # that stopped it.
+          unlisted=$(grep -c 'gpg signatures verification failed' dry-run.log)
+          hash_failed=$(grep -c 'file not verified' dry-run.log)
+          missing=$(grep -c 'file does not exist, skipping' dry-run.log)
+          unpublished=$(grep -c 'dry run: would publish' dry-run.log)
+
           {
             echo '## dry run'
-            echo "- packages stopped by a release not signed by a listed key: $(grep -c 'gpg signatures verification failed' dry-run.log)"
-            echo "- packages stopped by a file that failed its hash check: $(grep -c 'file not verified' dry-run.log)"
-            echo "- releases skipped for a missing manifest or signature: $(grep -c 'file does not exist, skipping' dry-run.log)"
-            echo "- files not published yet: $(grep -c 'dry run: would publish' dry-run.log)"
+            echo "- packages stopped by a signer that isn't listed: $unlisted"
+            echo "- packages stopped by a failed hash check: $hash_failed"
+            echo "- releases skipped for no manifest or signature: $missing"
+            echo "- files not published yet: $unpublished"
           } >> "$GITHUB_STEP_SUMMARY"
 
-          # coldcard checks its signatures before listing releases, so a failure there has no release to name.
+          # coldcard checks its signatures before listing releases, so a failure
+          # there has no release to name.
           awk '
             /^--- verifying / { package = substr($0, 15); release = "" }
             /^----- new release: / { release = " at " substr($0, 20) }
-            /gpg signatures verification failed|file not verified/ { print "::error::" package " stopped" release ": " $0 }
+            /gpg signatures verification failed|file not verified/ {
+              print "::error::" package " stopped" release ": " $0
+            }
           ' dry-run.log
 
-          # some releases are never signed, so a missing manifest or signature is a warning, not a failure. a renamed
-          # manifest shows up here too.
+          # some releases are never signed, so a missing manifest or signature
+          # is a warning, not a failure. a renamed manifest shows up here too.
           if grep -q 'file does not exist, skipping' dry-run.log; then
-            echo '::warning::a release was skipped for a missing manifest or signature'
+            echo '::warning::a release was skipped for no manifest or signature'
           fi
 
           exit "$status"

@@ -13,7 +13,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macos runs the scripts under bash 3.2, which is what catches compatibility mistakes.
+        # macos runs the scripts under bash 3.2, which is what catches
+        # compatibility mistakes.
         os: [macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     defaults:
@@ -36,7 +37,8 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install actionlint bats-core gnupg hq jaq shellcheck shfmt
 
-      # the scripts run with `env bash`, so make sure that's still macos's bash 3.2 and not a newer one on the path.
+      # the scripts run with `env bash`, so make sure that's still macos's bash
+      # 3.2 and not a newer one on the path.
       - name: check bash version (macos)
         if: runner.os == 'macOS'
         run: bash --version | head -n 1 | grep -F 'version 3.2'
@@ -46,6 +48,13 @@ jobs:
           shfmt -d .
           shfmt -f . | tr '\n' '\0' | xargs -0 shellcheck
           actionlint
+
+          # nothing else checks line length. lines with a url are exempt.
+          { shfmt -f .; ls .github/workflows/*.yml; } | tr '\n' '\0' \
+            | xargs -0 awk 'length > 80 && !/:\/\// {
+              print FILENAME ":" FNR ": over 80 characters"
+              failed = 1
+            } END { exit failed }'
 
       - name: test
         run: bats test

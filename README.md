@@ -97,6 +97,12 @@ shfmt -f . | xargs shellcheck
 actionlint
 ```
 
+nothing else checks line length, so ci also fails on lines over 80 characters (lines with a url are exempt):
+
+```bash
+{ shfmt -f .; ls .github/workflows/*.yml; } | tr '\n' '\0' | xargs -0 awk 'length > 80 && !/:\/\// { print FILENAME ":" FNR ": over 80 characters"; failed = 1 } END { exit failed }'
+```
+
 to fix formatting:
 
 ```bash

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-# serves https://<host>/<path> from $FAKE_CURL_ROOT/<host>/<path>, failing like `curl -f` when it's missing.
+# serves https://<host>/<path> from $FAKE_CURL_ROOT/<host>/<path>, failing like
+# `curl -f` when it's missing.
 
 url=''
 output_filename=''
