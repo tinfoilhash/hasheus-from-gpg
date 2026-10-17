@@ -166,9 +166,10 @@ publish_to_verify() {
 
 download_file() {
   local url="$1"
+  local filename="${2:-${url##*/}}"
 
   # Release files can be several GB, so abort stalled transfers instead of capping the total time.
-  curl -fL --connect-timeout 30 --speed-limit 1024 --speed-time 60 -O "$url"
+  curl -fL --connect-timeout 30 --speed-limit 1024 --speed-time 60 -o "$filename" "$url"
 }
 
 # `package_dir` is set by each package script.

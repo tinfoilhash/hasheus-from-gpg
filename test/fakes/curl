@@ -3,11 +3,11 @@
 # Serves https://<host>/<path> from $FAKE_CURL_ROOT/<host>/<path>, failing like `curl -f` when it's missing.
 
 url=''
-is_output_to_file=false
+output_filename=''
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    -O) is_output_to_file=true ;;
+    -o) output_filename="$2"; shift ;;
     --connect-timeout|--max-time|--speed-limit|--speed-time) shift ;;
     -*) ;;
     *) url="$1" ;;
@@ -23,12 +23,12 @@ if [ "$filename" = "${FAKE_CURL_FAIL:-}" ] || [ ! -f "$path" ]; then
   exit 22
 fi
 
-if [ "$is_output_to_file" = false ]; then
+if [ -z "$output_filename" ]; then
   cat "$path"
   exit
 fi
 
-cp "$path" "$filename"
+cp "$path" "$output_filename"
 
 if [ -n "${FAKE_CURL_LOG:-}" ]; then
   echo "$filename" >> "$FAKE_CURL_LOG"
