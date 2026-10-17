@@ -1,0 +1,2 @@
+# release downloads, removed when a run ends but left behind if it's killed outright
+packages/*/release.*/
