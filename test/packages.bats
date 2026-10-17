@@ -150,6 +150,15 @@ run_release() {
   [ "$(published)" = 'liana-business-1.0rc2-1_amd64.deb' ]
 }
 
+@test 'lightning terminal' {
+  run_release lightning_terminal v0.17.7 manifest-v0.17.7.txt \
+    manifest-roasbeef-v0.17.7.sig \
+    lightning-terminal-linux-amd64-v0.17.7.tar.gz \
+    manifest-roasbeef-v0.17.7.sig.ots
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'lightning-terminal-linux-amd64-v0.17.7.tar.gz' ]
+}
+
 @test 'lnd' {
   run_release lnd v0.21.4-beta manifest-v0.21.4-beta.txt \
     manifest-roasbeef-v0.21.4-beta.sig lnd-darwin-amd64-v0.21.4-beta.tar.gz \
