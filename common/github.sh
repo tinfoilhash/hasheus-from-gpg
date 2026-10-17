@@ -1,5 +1,16 @@
 source ../../common/common.sh
 
+resolve_filename_pattern() {
+  local pattern="$1"
+  local name="$2"
+
+  if [ "$(type -t "$pattern")" = 'function' ]; then
+    "$pattern" "$name"
+  else
+    echo "${pattern//\{\{NAME\}\}/$name}"
+  fi
+}
+
 verify_from_github() {
   local package_name="$1"
   local repo="$2"
@@ -61,15 +72,9 @@ verify_from_github() {
 
     echo '------- verifying gpg signatures'
 
-    if [ "$(type -t $shasum_filename_pattern)" = 'function' ]; then
-      shasum_filename_pattern=$($shasum_filename_pattern "$name")
-    else
-      shasum_filename_pattern="${shasum_filename_pattern//\{\{NAME\}\}/$name}"
-    fi
-
     # glob expansion, use first match
-    local shasum_filename=( $shasum_filename_pattern )
-    shasum_filename="${shasum_filename[0]}"
+    local shasum_filenames=( $(resolve_filename_pattern "$shasum_filename_pattern" "$name") )
+    local shasum_filename="${shasum_filenames[0]}"
 
     if [ ! -f "$shasum_filename" ]; then
       echo 'hashes file does not exist, skipping'
@@ -77,23 +82,16 @@ verify_from_github() {
       continue
     fi
 
-    if [ "$(type -t $shasum_signature_filename_pattern)" = 'function' ]; then
-      shasum_signature_filename_pattern=$($shasum_signature_filename_pattern "$name")
-    else
-      shasum_signature_filename_pattern="${shasum_signature_filename_pattern//\{\{NAME\}\}/$name}"
-    fi
+    # glob expansion, one match per signer
+    local shasum_signature_filenames=( $(resolve_filename_pattern "$shasum_signature_filename_pattern" "$name") )
 
-    # glob expansion, use first match
-    local shasum_signature_filename=( $shasum_signature_filename_pattern )
-    shasum_signature_filename="${shasum_signature_filename[0]}"
-
-    if [ ! -f "$shasum_signature_filename" ]; then
+    if [ ! -f "${shasum_signature_filenames[0]}" ]; then
       echo 'gpg signatures file does not exist, skipping'
       complete_release "$package_name" "$name" "$published_at"
       continue
     fi
 
-    local is_shasum_signature_detached=$(if [ "$shasum_filename" = "$shasum_signature_filename" ]; then echo 0; else echo 1; fi)
+    local is_shasum_signature_detached=$(if [ "$shasum_filename" = "${shasum_signature_filenames[0]}" ]; then echo 0; else echo 1; fi)
 
     local shasum_signed_filename=''
 
@@ -101,7 +99,17 @@ verify_from_github() {
       shasum_signed_filename="$shasum_filename"
     fi
 
-    if ! verify_gpg_signature "$shasum_signature_filename" "$shasum_signed_filename" "${key_fingerprints[@]}"; then
+    local is_shasum_signature_verified=false
+    local shasum_signature_filename
+
+    for shasum_signature_filename in "${shasum_signature_filenames[@]}"; do
+      if verify_gpg_signature "$shasum_signature_filename" "$shasum_signed_filename" "${key_fingerprints[@]}"; then
+        is_shasum_signature_verified=true
+        break
+      fi
+    done
+
+    if [ "$is_shasum_signature_verified" = false ]; then
       echo 'gpg signatures verification failed, skipping'
       complete_release "$package_name" "$name" "$published_at"
       continue
