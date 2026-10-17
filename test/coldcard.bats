@@ -33,6 +33,12 @@ setup_file() {
   make_site "$BATS_FILE_TMPDIR/site" signer
   make_site "$BATS_FILE_TMPDIR/site-unlisted-signer" stranger
 
+  # A site that lists firmware signatures.txt doesn't have yet.
+  make_site "$BATS_FILE_TMPDIR/site-unsigned-firmware" signer
+  local downloads_dir="$BATS_FILE_TMPDIR/site-unsigned-firmware/coldcard.com/downloads"
+  sed -i.bak 's|<tbody>|<tbody><tr><td><a href="/downloads/2026-10-31T1200-v5.6.4-mk-coldcard.dfu">new</a></td></tr>|' "$downloads_dir/all"
+  echo 'firmware 5.6.4' > "$downloads_dir/2026-10-31T1200-v5.6.4-mk-coldcard.dfu"
+
   # A site whose newest firmware changed after it was hashed.
   make_site "$BATS_FILE_TMPDIR/site-tampered" signer
   echo 'changed' >> "$BATS_FILE_TMPDIR/site-tampered/coldcard.com/downloads/2026-09-30T2026-v5.6.3-mk-coldcard.dfu"
@@ -81,6 +87,16 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" == *'file not verified, skipping'* ]]
   [ "$(published)" = '2026-08-20T1336-v5.6.1-mk-coldcard.dfu' ]
+}
+
+@test 'exits without recording firmware that signatures.txt does not have yet' {
+  FAKE_CURL_ROOT="$BATS_FILE_TMPDIR/site-unsigned-firmware" run "$repo_dir/packages/coldcard/verify.sh"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"2026-10-31T1200-v5.6.4-mk-coldcard.dfu isn't in signatures.txt yet, exiting"* ]]
+  [ "$(published)" = '2026-08-20T1336-v5.6.1-mk-coldcard.dfu 2026-09-30T2026-v5.6.3-mk-coldcard.dfu' ]
+  [ "$(state_of coldcard)" = '2026-09-30T2026' ]
+  [ -z "$(leftover_files coldcard)" ]
 }
 
 @test 'exits without recording the release when a download fails' {

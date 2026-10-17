@@ -32,7 +32,7 @@ releases=$(
 
 echo '----- checking for new releases'
 
-new_releases=$(jaq -r --arg since "$last_release_published_at" --argjson limit "$limit" '.urls | map(select(endswith(".dfu"))) | unique | map({ name: split("/") | last, url: ("https://coldcard.com" + .) }) | map(select(.name[0:15] > $since)) | sort_by(.name[0:15]) | reverse | [limit($limit; .[])] | reverse | .[] | "\(.name),\(.name[0:15]),\(.url)"' <<< "$releases")
+new_releases=$(jaq -r --arg since "$last_release_published_at" --argjson limit "$limit" '.urls | map(select(endswith(".dfu"))) | unique | map({ name: split("/") | last, url: ("https://coldcard.com" + .) }) | map(select(.name[0:15] > $since)) | sort_by(.name[0:15]) | reverse | [limit($limit; .[])] | reverse | .[] | "\(.name),\(.name[0:15]),\(.url)"' <<< "$releases") || exit 1
 new_releases_count=$(printf '%s' "$new_releases" | grep -c '^')
 
 echo "new releases found: $new_releases_count"
@@ -67,51 +67,19 @@ rm "$shasum_signed_filename"
 while IFS=',' read -r name published_at url <&3; do
   echo "----- new release: $name ($published_at)"
 
-  echo '------- downloading asset'
-
   start_release
 
-  download_file "$url" || exit 1
+  echo "------- processing file: $name"
 
-  echo '------- verifying hash'
+  shasum_line=$(awk -v name="$name" '$2 == name || $2 == "*" name' <<< "$shasum_manifest" | head -n 1)
 
-  shasum_check=$(shasum --check --ignore-missing <<< "$shasum_manifest")
+  # The site can list new firmware before signatures.txt has its hash, so try again on the next run.
+  if [ -z "$shasum_line" ]; then
+    echo "$name isn't in $shasum_signed_filename yet, exiting"
+    exit 1
+  fi
 
-  while IFS=' ' read -r hash filename <&4; do
-    if [ ! -f "$filename" ]; then
-      continue
-    fi
-
-    echo '------- processing file'
-
-    if is_published_to_verify "$hash"; then
-      echo 'file already verified, skipping'
-      continue
-    fi
-
-    content_type=$(file --mime-type -b "$filename")
-    size=$(wc -c < "$filename" | tr -d ' ')
-
-    echo "filename: $filename"
-    echo "hash: $hash"
-    echo "url: $url"
-    echo "content type: $content_type"
-    echo "size: $size"
-
-    if grep -Fxq "$filename: OK" <<< "$shasum_check"; then
-      echo 'verified: yes'
-    else
-      echo 'verified: no'
-      echo 'file not verified, skipping'
-      continue
-    fi
-
-    echo '------- publishing event'
-
-    if ! publish_to_verify "$filename" "$hash" "$url" "$content_type" "$size"; then
-      exit 1
-    fi
-  done 4<<< "$shasum_manifest"
+  publish_file "$shasum_line" "$url"
 
   complete_release "$package_name" "$published_at"
 done 3<<< "$new_releases"
