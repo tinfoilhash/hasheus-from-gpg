@@ -93,6 +93,13 @@ run_release() {
   [ "$(published)" = 'bitcoin-29.4.2.knots20260508-x86_64-linux-gnu.tar.gz' ]
 }
 
+@test 'blockstream green' {
+  run_release blockstream_green release_3.6.0 SHA256SUMS.asc SHA256SUMS.asc \
+    Blockstream-x86_64.AppImage Blockstream-arm64.dmg
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'Blockstream-x86_64.AppImage' ]
+}
+
 @test 'core lightning' {
   run_release core_lightning v26.06.9 SHA256SUMS-v26.06.9 \
     SHA256SUMS-v26.06.9.asc clightning-v26.06.9-Ubuntu-24.04-amd64.tar.xz \
