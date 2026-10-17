@@ -128,6 +128,13 @@ run_signed_files_release() {
   [ "$(published)" = 'Bisq-64bit-1.10.9.deb' ]
 }
 
+@test 'bisq 2' {
+  run_signed_files_release bisq_2 v2.1.14 .asc Bisq-2.1.14.dmg \
+    387C8307.asc signingkey.asc
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'Bisq-2.1.14.dmg' ]
+}
+
 @test 'bitcoin knots' {
   run_release bitcoin_knots v29.4.2.knots20260508 SHA256SUMS SHA256SUMS.asc \
     bitcoin-29.4.2.knots20260508-x86_64-linux-gnu.tar.gz
