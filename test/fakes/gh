@@ -2,8 +2,9 @@
 
 # serves releases from $FAKE_GH_ROOT: releases.json for `release list`, and
 # <tag>/ for each release's assets, whose urls point at
-# https://github.example/<tag>/<name> (for the fake curl to serve). `api
-# <endpoint>` serves $FAKE_GH_ROOT/api/<endpoint without its query>.json.
+# https://github.example/<tag>/<name> (for the fake curl to serve). each asset
+# has a sha256 digest, unless $FAKE_GH_NO_DIGESTS is set, like older releases.
+# `api <endpoint>` serves $FAKE_GH_ROOT/api/<endpoint without its query>.json.
 
 case "$1 $2" in
   'release list')
@@ -13,12 +14,18 @@ case "$1 $2" in
     tag="$3"
 
     for path in "$FAKE_GH_ROOT/$tag"/*; do
+      digest=''
+      if [ -z "${FAKE_GH_NO_DIGESTS:-}" ]; then
+        digest="sha256:$(shasum -a 256 "$path" | cut -d ' ' -f 1)"
+      fi
+
       jaq -n --arg tag "$tag" --arg name "${path##*/}" \
-        --argjson size "$(wc -c < "$path")" '{
+        --argjson size "$(wc -c < "$path")" --arg digest "$digest" '{
           name: $name,
           url: ("https://github.example/" + $tag + "/" + $name),
           contentType: "application/octet-stream",
-          size: $size
+          size: $size,
+          digest: (if $digest == "" then null else $digest end)
         }'
     done | jaq -s '{ assets: . }'
     ;;

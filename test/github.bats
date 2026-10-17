@@ -50,6 +50,26 @@ make_release_with_versioned_manifest() {
     "liana-$version-shasums.txt" "liana-$version-shasums.txt.asc"
 }
 
+# writes a release that signs each file instead of a manifest, like trezor
+# suite, with an unsigned file and a key attached as <id>.asc, like bisq's.
+make_release_with_signed_files() {
+  local release_dir="$1/$2"
+  local tag="$2"
+  local signer="${3:-signer}"
+
+  mkdir -p "$release_dir"
+  cd "$release_dir" || exit 1
+
+  local filename
+  for filename in "app-$tag.dmg" "app-$tag.exe"; do
+    echo "$filename" > "$filename"
+    sign_detached "$signer" "$filename" "$filename.asc"
+  done
+
+  echo "app $tag update metadata" > latest.yml
+  gpg --armor --export signer@test > 1234ABCD.asc
+}
+
 write_releases() {
   local root="$1"
   shift
@@ -99,6 +119,21 @@ setup_file() {
   echo 'changed' >> "$root/tampered/github.example/v1/app-v1.zip"
   write_releases "$root/tampered/github.example" v1=2026-01-01T00:00:00Z
 
+  make_release_with_signed_files "$root/signed-files/github.example" v1
+  make_release_with_signed_files "$root/signed-files/github.example" v2
+  write_releases "$root/signed-files/github.example" v1=2026-01-01T00:00:00Z \
+    v2=2026-02-01T00:00:00Z
+
+  make_release_with_signed_files \
+    "$root/signed-files-unlisted-signer/github.example" v1 stranger
+  write_releases "$root/signed-files-unlisted-signer/github.example" \
+    v1=2026-01-01T00:00:00Z
+
+  make_release_with_signed_files "$root/signed-files-tampered/github.example" v1
+  echo 'changed' >> "$root/signed-files-tampered/github.example/v1/app-v1.exe"
+  write_releases "$root/signed-files-tampered/github.example" \
+    v1=2026-01-01T00:00:00Z
+
   make_release_with_clearsigned_manifest \
     "$root/unlisted-signer/github.example" v1 stranger
   make_release_with_clearsigned_manifest \
@@ -115,12 +150,9 @@ setup() {
   create_repo
 }
 
-# writes a package script for the fake repo, plus any shell code (such as
-# pattern functions) given on stdin.
-write_package() {
-  local shasum_filename_pattern="$1"
-  local shasum_signature_filename_pattern="$2"
-
+# writes a package script for the fake repo that lists the "other" and "signer"
+# keys, followed by the shell code on stdin.
+write_package_script() {
   mkdir -p "$repo_dir/packages/test"
   {
     cat << EOF
@@ -139,17 +171,34 @@ key_fingerprints=(
   '$(fingerprint_of other)'
   '$(fingerprint_of signer)'
 )
-shasum_filename_pattern='$shasum_filename_pattern'
-shasum_signature_filename_pattern='$shasum_signature_filename_pattern'
 EOF
     cat
-    cat << 'EOF'
-verify_from_github "$package_name" "$repo" \
-  "$shasum_filename_pattern" "$shasum_signature_filename_pattern" \
-  "${key_fingerprints[@]}"
-EOF
   } > "$repo_dir/packages/test/verify.sh"
   chmod +x "$repo_dir/packages/test/verify.sh"
+}
+
+# writes a package script with a signed manifest, plus any shell code (such as
+# pattern functions) given on stdin.
+write_package() {
+  local shasum_filename_pattern="$1"
+  local shasum_signature_filename_pattern="$2"
+
+  {
+    cat
+    cat << EOF
+verify_from_github "\$package_name" "\$repo" \\
+  '$shasum_filename_pattern' '$shasum_signature_filename_pattern' \\
+  "\${key_fingerprints[@]}"
+EOF
+  } | write_package_script
+}
+
+# writes a package script with a signature for each file, like trezor suite.
+write_signed_files_package() {
+  write_package_script << 'EOF'
+verify_signed_files_from_github "$package_name" "$repo" .asc \
+  "${key_fingerprints[@]}"
+EOF
 }
 
 # serves a fixture's releases through the fake gh, and their assets through the
@@ -352,4 +401,89 @@ EOF
   [ "$status" -eq 0 ]
   [ "$(grep -c 'file already verified, skipping' <<< "$output")" -eq 2 ]
   [ "$(wc -l < "$FAKE_NAK_LOG")" -eq 2 ]
+}
+
+@test 'publishes each file that has its own signature' {
+  write_signed_files_package
+
+  run_package signed-files
+
+  [ "$status" -eq 0 ]
+  published_is app-v1.dmg app-v1.exe app-v2.dmg app-v2.exe
+  [ "$(state_of test)" = '2026-02-01T00:00:00Z' ]
+  [ -z "$(leftover_files test)" ]
+}
+
+@test 'skips and records a release with no signed files' {
+  write_signed_files_package
+
+  run_package no-hashes
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'signed files do not exist, skipping'* ]]
+  [ -z "$(published)" ]
+  [ "$(state_of test)" = '2026-01-01T00:00:00Z' ]
+}
+
+@test 'exits without recording a file not signed by a listed key' {
+  write_signed_files_package
+
+  run_package signed-files-unlisted-signer
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'file not verified, exiting'* ]]
+  [ -z "$(published)" ]
+  [ -z "$(state_of test)" ]
+  [ -z "$(leftover_files test)" ]
+}
+
+@test 'exits without publishing or recording a file changed after signing' {
+  write_signed_files_package
+
+  run_package signed-files-tampered
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'file not verified, exiting'* ]]
+  published_is app-v1.dmg
+  [ -z "$(state_of test)" ]
+}
+
+@test 'exits without recording the release when a signed file download fails' {
+  write_signed_files_package
+
+  FAKE_CURL_FAIL=app-v2.exe run_package signed-files
+
+  [ "$status" -eq 1 ]
+  published_is app-v1.dmg app-v1.exe app-v2.dmg
+  [ "$(state_of test)" = '2026-01-01T00:00:00Z' ]
+  [ -z "$(leftover_files test)" ]
+}
+
+@test 'skips signed files already published without downloading them' {
+  write_signed_files_package
+  run_package signed-files
+  rm "$XDG_CONFIG_HOME/verify-from-gpg/test"
+  local downloads="$BATS_TEST_TMPDIR/downloads"
+
+  FAKE_CURL_LOG="$downloads" run_package signed-files
+
+  [ "$status" -eq 0 ]
+  [ "$(grep -c 'file already verified, skipping' <<< "$output")" -eq 4 ]
+  [ ! -s "$downloads" ]
+  [ "$(wc -l < "$FAKE_NAK_LOG")" -eq 4 ]
+}
+
+@test 'skips signed files already published when github has no digests' {
+  export FAKE_GH_NO_DIGESTS=1
+  write_signed_files_package
+  run_package signed-files
+  rm "$XDG_CONFIG_HOME/verify-from-gpg/test"
+  local downloads="$BATS_TEST_TMPDIR/downloads"
+
+  FAKE_CURL_LOG="$downloads" run_package signed-files
+
+  [ "$status" -eq 0 ]
+  [ "$(grep -c 'file already verified, skipping' <<< "$output")" -eq 4 ]
+  [ "$(grep -c -v '\.asc$' "$downloads")" -eq 4 ]
+  [ "$(wc -l < "$FAKE_NAK_LOG")" -eq 4 ]
 }
