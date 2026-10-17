@@ -205,6 +205,19 @@ EOF
   [ -z "$(leftover_files test)" ]
 }
 
+@test 'publishes and records nothing in a dry run' {
+  write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
+
+  DRY_RUN=1 run_package clearsigned
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'dry run: would publish app-v1.zip'* ]]
+  [[ "$output" == *'dry run: would publish app-v2.zip'* ]]
+  [ -z "$(published)" ]
+  [ -z "$(state_of test)" ]
+  [ -z "$(leftover_files test)" ]
+}
+
 @test 'skips files that are already published' {
   write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
   run_package clearsigned
