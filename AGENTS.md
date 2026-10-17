@@ -38,7 +38,7 @@ each package script checks a project's new releases: it downloads the release's 
 
 ## adding or changing a package
 
-- for a github package, copy an existing script like `packages/sparrow/verify.sh` and set `repo`, the manifest and signature file name patterns (`{{NAME}}` is the release tag, or use a function, like `packages/liana/verify.sh`), and `key_fingerprints`.
+- for a github package, copy an existing script like `packages/sparrow/verify.sh` and set `package_name`, `repo`, the manifest and signature file name patterns (`{{NAME}}` is the release tag, or use a function, like `packages/liana/verify.sh`), and `key_fingerprints`. `package_name` is the name of the package's state file, so a copied script that keeps the old one overwrites that package's state.
 - add a test to `test/packages.bats` with a release named the way the project actually names its files, so a typo in a pattern fails.
 
 ## keys
@@ -46,7 +46,11 @@ each package script checks a project's new releases: it downloads the release's 
 - each listed fingerprint has a comment with the https url it's published at, preferably in the project's own repo. check the fingerprint against that file (`gpg --show-keys`) before listing it.
 - new keys usually show up as a release that fails its signature check. find who signed it (`gpg --list-packets` shows the issuer), and confirm the key is published by the project before listing it.
 - run `./check_keys.sh` after changing a list. `./check_keys.sh --import` imports only the listed key from each url.
-- adding a key doesn't recheck releases that were already recorded. to retry one, set the package's state to just before its date, then do a real run (files already published are skipped).
+- adding a key doesn't recheck releases that were already recorded. to retry one, set the package's state to just before the release's date, then do a real run (files already published are skipped). the state is `~/.config/verify-from-gpg/<package_name>` (under `XDG_CONFIG_HOME` if set), a single line in the release date's format, for example:
+
+  ```
+  last_release_published_at='2026-09-14T16:03:50Z'
+  ```
 
 ## style
 
