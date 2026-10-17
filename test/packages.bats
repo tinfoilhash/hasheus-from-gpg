@@ -301,6 +301,13 @@ run_signed_files_release() {
   [ "$(published)" = 'phoenix-120-2.8.4-mainnet.apk' ]
 }
 
+@test 'phoenixd' {
+  run_release phoenixd v0.9.3 SHA256SUMS.asc SHA256SUMS.asc \
+    phoenixd-0.9.3-linux-x64.zip
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'phoenixd-0.9.3-linux-x64.zip' ]
+}
+
 @test 'seedsigner' {
   run_release seedsigner 0.8.7 seedsigner.0.8.7.sha256.txt \
     seedsigner.0.8.7.sha256.txt.sig seedsigner_os.0.8.7.pi0.img
