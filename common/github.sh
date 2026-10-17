@@ -260,17 +260,10 @@ verify_signed_files_release() {
   shift 4
   local key_fingerprints=("$@")
 
-  # files without a signature, like electron's update metadata, are left out.
-  # so are signatures without a file, like the keys bisq attaches as <id>.asc.
-  local signed_filenames=''
-  local asset_name
-  while IFS= read -r asset_name; do
-    if grep -Fxq -- "$asset_name$signature_suffix" <<< "$asset_names"; then
-      signed_filenames+="$asset_name"$'\n'
-    fi
-  done <<< "$asset_names"
+  local signed_asset_names
+  signed_asset_names=$(signed_filenames "$asset_names" "$signature_suffix")
 
-  if [ -z "$signed_filenames" ]; then
+  if [ -z "$signed_asset_names" ]; then
     echo 'signed files do not exist, skipping'
     return
   fi
@@ -280,78 +273,21 @@ verify_signed_files_release() {
     echo "------- processing file: $filename"
 
     local release_asset
-    release_asset=$(jaq -r --arg filename "$filename" '
-      .assets[]
+    release_asset=$(jaq -r --arg filename "$filename" \
+      --arg signature_filename "$filename$signature_suffix" '
+      (
+        .assets[] | select(.name == $signature_filename) | .url
+      ) as $signature_url
+      | .assets[]
       | select(.name == $filename)
-      | "\(.url),\(.contentType),\(.size),\(.digest // "")"
+      | "\(.url),\($signature_url),\(.contentType),\(.size),\(.digest // "")"
     ' <<< "$release_assets") || exit 1
 
-    local url content_type size digest
-    IFS=',' read -r url content_type size digest <<< "$release_asset"
+    local url signature_url content_type size digest
+    IFS=',' read -r url signature_url content_type size digest \
+      <<< "$release_asset"
 
-    publish_signed_file "$filename" "$filename$signature_suffix" \
-      "$release_assets" "$url" "$content_type" "$size" "$digest" \
-      "${key_fingerprints[@]}"
-  done 4<<< "${signed_filenames%$'\n'}"
-}
-
-# like `publish_file`, but checks the file against its own signature. github's
-# digest (when it has one) is used only to skip a file that's already
-# published without downloading it: what's published is the downloaded file's
-# hash, once its signature verifies.
-publish_signed_file() {
-  local filename="$1"
-  local signature_filename="$2"
-  local release_assets="$3"
-  local url="$4"
-  local content_type="$5"
-  local size="$6"
-  local digest="$7"
-  shift 7
-  local key_fingerprints=("$@")
-
-  local digest_hash="${digest#sha256:}"
-  if [[ ! "$digest_hash" =~ ^[0-9a-f]{64}$ ]]; then
-    digest_hash=''
-  fi
-
-  if [ -n "$digest_hash" ] && is_published_to_verify "$digest_hash"; then
-    echo 'file already verified, skipping'
-    return
-  fi
-
-  echo '------- downloading file and gpg signature'
-
-  download_asset "$release_assets" "$signature_filename" || exit 1
-  download_file "$url" "$filename" || exit 1
-
-  local hash
-  hash=$(shasum -a 256 -- "$filename") || exit 1
-  hash="${hash%% *}"
-
-  if [ "$hash" != "$digest_hash" ] && is_published_to_verify "$hash"; then
-    echo 'file already verified, skipping'
-    return
-  fi
-
-  echo "filename: $filename"
-  echo "hash: $hash"
-  echo "url: $url"
-  echo "content type: $content_type"
-  echo "size: $size"
-
-  if verify_gpg_signature "$signature_filename" "$filename" \
-    "${key_fingerprints[@]}"; then
-    echo 'verified: yes'
-  else
-    echo 'verified: no'
-    # a failed download can also cause this, so exit without recording the
-    # release and try again on the next run.
-    echo 'file not verified, exiting'
-    exit 1
-  fi
-
-  echo '------- publishing event'
-
-  publish_to_verify "$filename" "$hash" "$url" "$content_type" "$size" || exit 1
+    publish_signed_file "$filename" "$url" "$signature_url" "$content_type" \
+      "$size" "$digest" "${key_fingerprints[@]}"
+  done 4<<< "$signed_asset_names"
 }

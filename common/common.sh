@@ -291,6 +291,93 @@ publish_file() {
   publish_to_verify "$filename" "$hash" "$url" "$content_type" "$size" || exit 1
 }
 
+# prints each file name that has a signature among the names, as
+# <name><suffix>. files without one, like electron's update metadata, are left
+# out, and so are signatures without a file, like the keys bisq attaches as
+# <id>.asc.
+signed_filenames() {
+  local filenames="$1"
+  local signature_suffix="$2"
+
+  local filename
+  while IFS= read -r filename; do
+    if grep -Fxq -- "$filename$signature_suffix" <<< "$filenames"; then
+      echo "$filename"
+    fi
+  done <<< "$filenames"
+}
+
+# like `publish_file`, but checks the file against its own signature. a known
+# digest (like github's) is used only to skip a file that's already published
+# without downloading it: what's published is the downloaded file's hash, once
+# its signature verifies. the content type and size default to the downloaded
+# file's.
+publish_signed_file() {
+  local filename="$1"
+  local url="$2"
+  local signature_url="$3"
+  local content_type="${4:-}"
+  local size="${5:-}"
+  local digest="${6:-}"
+  shift 6
+  local key_fingerprints=("$@")
+
+  local digest_hash="${digest#sha256:}"
+  if [[ ! "$digest_hash" =~ ^[0-9a-f]{64}$ ]]; then
+    digest_hash=''
+  fi
+
+  if [ -n "$digest_hash" ] && is_published_to_verify "$digest_hash"; then
+    echo 'file already verified, skipping'
+    return
+  fi
+
+  echo '------- downloading file and gpg signature'
+
+  local signature_filename="${signature_url##*/}"
+
+  download_file "$signature_url" "$signature_filename" || exit 1
+  download_file "$url" "$filename" || exit 1
+
+  local hash
+  hash=$(shasum -a 256 -- "$filename") || exit 1
+  hash="${hash%% *}"
+
+  if [ "$hash" != "$digest_hash" ] && is_published_to_verify "$hash"; then
+    echo 'file already verified, skipping'
+    return
+  fi
+
+  if [ -z "$content_type" ]; then
+    content_type=$(file --mime-type -b "$filename")
+  fi
+
+  if [ -z "$size" ]; then
+    size=$(wc -c < "$filename" | tr -d ' ')
+  fi
+
+  echo "filename: $filename"
+  echo "hash: $hash"
+  echo "url: $url"
+  echo "content type: $content_type"
+  echo "size: $size"
+
+  if verify_gpg_signature "$signature_filename" "$filename" \
+    "${key_fingerprints[@]}"; then
+    echo 'verified: yes'
+  else
+    echo 'verified: no'
+    # a failed download can also cause this, so exit without recording the
+    # release and try again on the next run.
+    echo 'file not verified, exiting'
+    exit 1
+  fi
+
+  echo '------- publishing event'
+
+  publish_to_verify "$filename" "$hash" "$url" "$content_type" "$size" || exit 1
+}
+
 download_file() {
   local url="$1"
   local filename="${2:-${url##*/}}"
