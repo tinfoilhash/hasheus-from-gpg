@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
-# audits every package's listed keys: imported and usable, still published at the listed url, and no keys in a
-# project's key folder that aren't listed. with --import, imports each listed key from its url first.
+# audits every package's listed keys: imported and usable, still published at
+# the listed url, and no keys in a project's key folder that aren't listed. with
+# --import, imports each listed key from its url first.
 
 cd "$(dirname -- "$(realpath "$0")")" || exit 1
 
@@ -27,7 +28,8 @@ report_warning() {
 listed_keys() {
   local package_name="$1"
 
-  sed -n -E "s/^  '([0-9A-F]{40})' # (https?:[^ ]+).*/\1 \2/p" "packages/$package_name/verify.sh"
+  sed -n -E "s/^  '([0-9A-F]{40})' # (https?:[^ ]+).*/\1 \2/p" \
+    "packages/$package_name/verify.sh"
 }
 
 is_any_key_in_file() {
@@ -36,7 +38,10 @@ is_any_key_in_file() {
 
   gpg --with-colons --show-keys "$key_filename" 2> /dev/null \
     | awk -F: -v fingerprints="$(tr '\n' ' ' <<< "$fingerprints")" '
-    BEGIN { split(fingerprints, list, " "); for (i in list) listed[list[i]] = 1 }
+    BEGIN {
+      split(fingerprints, list, " ")
+      for (i in list) listed[list[i]] = 1
+    }
     $1 == "fpr" && ($10 in listed) { found = 1 }
     END { exit !found }
   '
@@ -46,13 +51,15 @@ import_key() {
   local fingerprint="$1"
   local key_filename="$2"
 
-  # gpg-agent's socket path has a short length limit, so keep the keyring out of the long default temp directory.
+  # gpg-agent's socket path has a short length limit, so keep the keyring out of
+  # the long default temp directory.
   local home
   home=$(mktemp -d /tmp/verify-from-gpg-keys.XXXXXX) || exit 1
 
   # import only the listed key, even when the file has others.
   GNUPGHOME="$home" gpg -q --batch --import "$key_filename" 2> /dev/null
-  GNUPGHOME="$home" gpg --batch --export "$fingerprint" | gpg -q --batch --import 2> /dev/null
+  GNUPGHOME="$home" gpg --batch --export "$fingerprint" \
+    | gpg -q --batch --import 2> /dev/null
   GNUPGHOME="$home" gpgconf --kill gpg-agent
   rm -rf "${home:?}"
 }
@@ -62,32 +69,44 @@ key_status() {
   local fingerprint="$1"
 
   local colons
-  if ! colons=$(gpg --with-colons --fixed-list-mode --list-keys "$fingerprint" 2> /dev/null); then
+  if ! colons=$(gpg --with-colons --fixed-list-mode --list-keys "$fingerprint" \
+    2> /dev/null); then
     echo "isn't imported"
     return
   fi
 
   local status
   status=$(awk -F: -v now="$(date +%s)" '
-    function is_usable() { return $12 ~ /s/ && $2 !~ /[er]/ && ($7 == "" || $7 > now) }
-    $1 == "pub" { validity = $2; expires_at = $7; if (is_usable()) can_sign = 1 }
+    function is_usable() {
+      return $12 ~ /s/ && $2 !~ /[er]/ && ($7 == "" || $7 > now)
+    }
+    $1 == "pub" {
+      validity = $2
+      expires_at = $7
+      if (is_usable()) can_sign = 1
+    }
     $1 == "sub" && is_usable() { can_sign = 1 }
     END {
+      is_expired = validity == "e" || (expires_at != "" && expires_at <= now)
       if (validity == "r") print "is revoked"
-      else if (validity == "e" || (expires_at != "" && expires_at <= now)) print "expired on " expires_at
+      else if (is_expired) print "expired on " expires_at
       else if (!can_sign) print "has no usable signing key"
       else print "ok"
     }
   ' <<< "$colons")
 
   if [[ "$status" == 'expired on '* ]]; then
-    status="expired on $(jaq -rn --argjson time "${status#expired on }" '$time | strftime("%Y-%m-%d")')"
+    local expired_on
+    expired_on=$(jaq -rn --argjson time "${status#expired on }" \
+      '$time | strftime("%Y-%m-%d")')
+    status="expired on $expired_on"
   fi
 
   echo "$status"
 }
 
-# prints "<owner>/<repo> <ref> <directory>" for a key in a folder on raw.githubusercontent.com, or nothing otherwise.
+# prints "<owner>/<repo> <ref> <directory>" for a key in a folder on
+# raw.githubusercontent.com, or nothing otherwise.
 github_key_directory() {
   local url="$1"
 
@@ -166,16 +185,23 @@ check_unlisted_keys() {
       fi
 
       local key_filename="$key_dir/unlisted"
-      if ! curl -fsSL --max-time 30 -o "$key_filename" "$download_url" 2> /dev/null; then
-        report_problem "couldn't download $repo/$directory/$filename to check it"
+      if ! curl -fsSL --max-time 30 -o "$key_filename" "$download_url" \
+        2> /dev/null; then
+        report_problem \
+          "couldn't download $repo/$directory/$filename to check it"
         continue
       fi
 
-      # the same key can be in a folder under two names, like bitcoin core's sedited.gpg and TheCharlatan.gpg.
+      # the same key can be in a folder under two names, like bitcoin core's
+      # sedited.gpg and TheCharlatan.gpg.
       if ! is_any_key_in_file "$listed_fingerprints" "$key_filename"; then
         report_problem "$repo has $directory/$filename, which isn't listed"
       fi
-    done < <(jaq -r '.[] | select(.type == "file" and (.name | test("\\.(asc|gpg|txt)$"))) | "\(.name) \(.download_url)"' <<< "$listing")
+    done < <(jaq -r '
+      .[]
+      | select(.type == "file" and (.name | test("\\.(asc|gpg|txt)$")))
+      | "\(.name) \(.download_url)"
+    ' <<< "$listing")
   done < <(
     while read -r url; do
       github_key_directory "$url"

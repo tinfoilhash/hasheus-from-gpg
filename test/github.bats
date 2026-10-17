@@ -3,8 +3,9 @@
 # shellcheck source=test/test_helper.bash
 source "$BATS_TEST_DIRNAME/test_helper.bash"
 
-# writes a release whose manifest has one detached signature per signer, like lnd. the first signature (by file
-# name) is from a key that isn't in the keyring and the second from one that isn't listed. like lnd's, the manifest
+# writes a release whose manifest has one detached signature per signer, like
+# lnd. the first signature (by file name) is from a key that isn't in the
+# keyring and the second from one that isn't listed. like lnd's, the manifest
 # also lists a file from inside the archive that isn't a release asset.
 make_release_with_signature_per_signer() {
   local release_dir="$1/$2"
@@ -21,7 +22,8 @@ make_release_with_signature_per_signer() {
   sign_detached signer "manifest-$tag.txt" "manifest-zzz-$tag.sig"
 }
 
-# writes a release with a clearsigned manifest in binary mode (`*filename`), like wasabi.
+# writes a release with a clearsigned manifest in binary mode (`*filename`),
+# like wasabi.
 make_release_with_clearsigned_manifest() {
   local release_dir="$1/$2"
   local tag="$2"
@@ -44,7 +46,8 @@ make_release_with_versioned_manifest() {
   cd "$release_dir" || exit 1
   echo "app $version" > "liana-$version.tar.gz"
   shasum -a 256 "liana-$version.tar.gz" > "liana-$version-shasums.txt"
-  sign_detached signer "liana-$version-shasums.txt" "liana-$version-shasums.txt.asc"
+  sign_detached signer \
+    "liana-$version-shasums.txt" "liana-$version-shasums.txt.asc"
 }
 
 write_releases() {
@@ -54,7 +57,8 @@ write_releases() {
   local releases='[]'
   local release
   for release in "$@"; do
-    releases=$(jaq -c --arg tag "${release%%=*}" --arg published_at "${release#*=}" \
+    releases=$(jaq -c \
+      --arg tag "${release%%=*}" --arg published_at "${release#*=}" \
       '[{ tagName: $tag, publishedAt: $published_at }] + .' <<< "$releases")
   done
 
@@ -68,17 +72,21 @@ setup_file() {
 
   make_release_with_signature_per_signer "$root/per-signer/github.example" v1
   make_release_with_signature_per_signer "$root/per-signer/github.example" v2
-  write_releases "$root/per-signer/github.example" v1=2026-01-01T00:00:00Z v2=2026-02-01T00:00:00Z
+  write_releases "$root/per-signer/github.example" v1=2026-01-01T00:00:00Z \
+    v2=2026-02-01T00:00:00Z
 
   make_release_with_clearsigned_manifest "$root/clearsigned/github.example" v1
   make_release_with_clearsigned_manifest "$root/clearsigned/github.example" v2
-  write_releases "$root/clearsigned/github.example" v1=2026-01-01T00:00:00Z v2=2026-02-01T00:00:00Z
+  write_releases "$root/clearsigned/github.example" v1=2026-01-01T00:00:00Z \
+    v2=2026-02-01T00:00:00Z
 
   make_release_with_versioned_manifest "$root/versioned/github.example" v1
   make_release_with_versioned_manifest "$root/versioned/github.example" v2
-  write_releases "$root/versioned/github.example" v1=2026-01-01T00:00:00Z v2=2026-02-01T00:00:00Z
+  write_releases "$root/versioned/github.example" v1=2026-01-01T00:00:00Z \
+    v2=2026-02-01T00:00:00Z
 
-  # a release with only an asset, one with hashes but no signature, and one whose asset changed after it was hashed.
+  # a release with only an asset, one with hashes but no signature, and one
+  # whose asset changed after it was hashed.
   mkdir -p "$root/no-hashes/github.example/v1"
   echo 'app v1' > "$root/no-hashes/github.example/v1/app-v1.zip"
   write_releases "$root/no-hashes/github.example" v1=2026-01-01T00:00:00Z
@@ -91,9 +99,12 @@ setup_file() {
   echo 'changed' >> "$root/tampered/github.example/v1/app-v1.zip"
   write_releases "$root/tampered/github.example" v1=2026-01-01T00:00:00Z
 
-  make_release_with_clearsigned_manifest "$root/unlisted-signer/github.example" v1 stranger
-  make_release_with_clearsigned_manifest "$root/unlisted-signer/github.example" v2
-  write_releases "$root/unlisted-signer/github.example" v1=2026-01-01T00:00:00Z v2=2026-02-01T00:00:00Z
+  make_release_with_clearsigned_manifest \
+    "$root/unlisted-signer/github.example" v1 stranger
+  make_release_with_clearsigned_manifest \
+    "$root/unlisted-signer/github.example" v2
+  write_releases "$root/unlisted-signer/github.example" \
+    v1=2026-01-01T00:00:00Z v2=2026-02-01T00:00:00Z
 }
 
 teardown_file() {
@@ -104,7 +115,8 @@ setup() {
   create_repo
 }
 
-# writes a package script for the fake repo, plus any shell code (such as pattern functions) given on stdin.
+# writes a package script for the fake repo, plus any shell code (such as
+# pattern functions) given on stdin.
 write_package() {
   local shasum_filename_pattern="$1"
   local shasum_signature_filename_pattern="$2"
@@ -131,12 +143,17 @@ shasum_filename_pattern='$shasum_filename_pattern'
 shasum_signature_filename_pattern='$shasum_signature_filename_pattern'
 EOF
     cat
-    echo 'verify_from_github "$package_name" "$repo" "$shasum_filename_pattern" "$shasum_signature_filename_pattern" "${key_fingerprints[@]}"'
+    cat << 'EOF'
+verify_from_github "$package_name" "$repo" \
+  "$shasum_filename_pattern" "$shasum_signature_filename_pattern" \
+  "${key_fingerprints[@]}"
+EOF
   } > "$repo_dir/packages/test/verify.sh"
   chmod +x "$repo_dir/packages/test/verify.sh"
 }
 
-# serves a fixture's releases through the fake gh, and their assets through the fake curl.
+# serves a fixture's releases through the fake gh, and their assets through the
+# fake curl.
 run_package() {
   export FAKE_CURL_ROOT="$BATS_FILE_TMPDIR/$1"
   export FAKE_GH_ROOT="$FAKE_CURL_ROOT/github.example"
@@ -163,7 +180,7 @@ run_package() {
   [ "$(grep -c 'file is not a release asset, skipping' <<< "$output")" -eq 2 ]
 }
 
-@test 'downloads only hashes, signatures, and files that are not published yet' {
+@test 'downloads only hashes, signatures, and files not published yet' {
   write_package 'manifest-{{NAME}}.txt' 'manifest-*-{{NAME}}.sig' < /dev/null
   run_package per-signer
   rm "$XDG_CONFIG_HOME/verify-from-gpg/test"
@@ -188,7 +205,8 @@ run_package() {
 }
 
 @test 'resolves pattern functions for every release' {
-  write_package shasum_filename_pattern shasum_signature_filename_pattern << 'EOF'
+  write_package shasum_filename_pattern \
+    shasum_signature_filename_pattern << 'EOF'
 shasum_filename_pattern() { echo "liana-${1#v}-shasums.txt"; }
 shasum_signature_filename_pattern() { echo "liana-${1#v}-shasums.txt.asc"; }
 EOF
@@ -254,7 +272,7 @@ EOF
   [ "$(published)" = 'app-v2.zip' ]
 }
 
-@test 'exits without recording the release when publishing fails, and a rerun publishes the rest' {
+@test 'exits without recording a failed publish, and a rerun publishes it' {
   write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
 
   FAKE_NAK_FAIL=app-v1.zip run_package clearsigned
@@ -312,7 +330,9 @@ EOF
   write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
   unset NSEC
 
-  DRY_RUN=1 NPUB='npub1gm7yl6a9xsnkg2lepuaf4hddv2yvwlun5atxjtye3pu5l0vh5kes8ef4r5' run_package clearsigned
+  local npub='npub1gm7yl6a9xsnkg2lepuaf4hddv2yvwlun5atxjtye3pu5l0vh5kes8ef4r5'
+
+  DRY_RUN=1 NPUB="$npub" run_package clearsigned
 
   [ "$status" -eq 0 ]
   [[ "$output" == *'dry run: would publish app-v1.zip'* ]]

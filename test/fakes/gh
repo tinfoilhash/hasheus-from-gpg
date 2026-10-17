@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 
-# serves releases from $FAKE_GH_ROOT: releases.json for `release list`, and <tag>/ for each release's assets, whose
-# urls point at https://github.example/<tag>/<name> (for the fake curl to serve). `api <endpoint>` serves
-# $FAKE_GH_ROOT/api/<endpoint without its query>.json.
+# serves releases from $FAKE_GH_ROOT: releases.json for `release list`, and
+# <tag>/ for each release's assets, whose urls point at
+# https://github.example/<tag>/<name> (for the fake curl to serve). `api
+# <endpoint>` serves $FAKE_GH_ROOT/api/<endpoint without its query>.json.
 
 case "$1 $2" in
   'release list')
@@ -12,8 +13,13 @@ case "$1 $2" in
     tag="$3"
 
     for path in "$FAKE_GH_ROOT/$tag"/*; do
-      jaq -n --arg tag "$tag" --arg name "${path##*/}" --argjson size "$(wc -c < "$path")" \
-        '{ name: $name, url: ("https://github.example/" + $tag + "/" + $name), contentType: "application/octet-stream", size: $size }'
+      jaq -n --arg tag "$tag" --arg name "${path##*/}" \
+        --argjson size "$(wc -c < "$path")" '{
+          name: $name,
+          url: ("https://github.example/" + $tag + "/" + $name),
+          contentType: "application/octet-stream",
+          size: $size
+        }'
     done | jaq -s '{ assets: . }'
     ;;
   api\ *)

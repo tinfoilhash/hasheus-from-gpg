@@ -56,6 +56,7 @@ each package script checks a project's new releases: it downloads the release's 
 
 - **bash 3.2**, since that's what macos ships: no `mapfile`, associative arrays, `${var,,}`, or other bash 4+ features. ci runs the tests under 3.2 on macos.
 - formatting is [shfmt](https://github.com/mvdan/sh), with its settings in `.editorconfig`.
+- code and comments fit in 80 columns, except lines with a url. ci checks this, since shfmt doesn't.
 
 ## checks
 

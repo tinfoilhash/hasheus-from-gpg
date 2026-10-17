@@ -18,7 +18,8 @@ key_fingerprints=(
 shasum_filename_pattern() {
   local name="$1"
 
-  # remove "v" before version number. this needs a backreference, which parameter expansion doesn't support.
+  # remove "v" before version number. this needs a backreference, which
+  # parameter expansion doesn't support.
   local name_without_v
   # shellcheck disable=SC2001
   name_without_v=$(sed 's/v\([0-9]\)/\1/g' <<< "$name")
@@ -32,4 +33,6 @@ shasum_signature_filename_pattern() {
   echo "$(shasum_filename_pattern "$name").asc"
 }
 
-verify_from_github "$package_name" "$repo" shasum_filename_pattern shasum_signature_filename_pattern "${key_fingerprints[@]}"
+verify_from_github "$package_name" "$repo" \
+  shasum_filename_pattern shasum_signature_filename_pattern \
+  "${key_fingerprints[@]}"

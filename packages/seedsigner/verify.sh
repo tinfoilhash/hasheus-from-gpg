@@ -17,4 +17,6 @@ key_fingerprints=(
 shasum_filename_pattern='seedsigner.{{NAME}}.sha256.txt'
 shasum_signature_filename_pattern="$shasum_filename_pattern.sig"
 
-verify_from_github "$package_name" "$repo" "$shasum_filename_pattern" "$shasum_signature_filename_pattern" "${key_fingerprints[@]}"
+verify_from_github "$package_name" "$repo" \
+  "$shasum_filename_pattern" "$shasum_signature_filename_pattern" \
+  "${key_fingerprints[@]}"

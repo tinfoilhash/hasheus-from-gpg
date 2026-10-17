@@ -28,7 +28,8 @@ setup() {
 
 @test 'reads every release date format in use' {
   local published_at
-  for published_at in '2026-09-17T10:08:33Z' '2026-07-13T00:00:00+0000' '2026-07-31T1608'; do
+  for published_at in \
+    '2026-09-17T10:08:33Z' '2026-07-13T00:00:00+0000' '2026-07-31T1608'; do
     set_state test "$published_at"
     source_state test
     [ "$last_release_published_at" = "$published_at" ]
@@ -37,18 +38,21 @@ setup() {
 
 @test 'rejects state that would run code without running it' {
   mkdir -p "${state_file%/*}"
-  echo "last_release_published_at='x';touch $BATS_TEST_TMPDIR/ran;'" > "$state_file"
+  echo "last_release_published_at='x';touch $BATS_TEST_TMPDIR/ran;'" \
+    > "$state_file"
 
   run source_state test
 
   [ "$status" -eq 1 ]
-  [ "$output" = "invalid state in $state_file (delete it to check the last 3 releases again), exiting" ]
+  local hint='(delete it to check the last 3 releases again)'
+  [ "$output" = "invalid state in $state_file $hint, exiting" ]
   [ ! -e "$BATS_TEST_TMPDIR/ran" ]
 }
 
 @test 'rejects state with extra lines' {
   mkdir -p "${state_file%/*}"
-  printf "last_release_published_at='2026-01-01T00:00:00Z'\nextra\n" > "$state_file"
+  printf "last_release_published_at='2026-01-01T00:00:00Z'\nextra\n" \
+    > "$state_file"
 
   run source_state test
 

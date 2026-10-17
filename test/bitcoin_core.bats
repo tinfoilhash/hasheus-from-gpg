@@ -3,8 +3,9 @@
 # shellcheck source=test/test_helper.bash
 source "$BATS_TEST_DIRNAME/test_helper.bash"
 
-# writes a fake bitcoincore.org with releases 30.0 and 30.1, each with two files. 30.1 can be signed by another key
-# or have a file changed after it was hashed.
+# writes a fake bitcoincore.org with releases 30.0 and 30.1, each with two
+# files. 30.1 can be signed by another key or have a file changed after it was
+# hashed.
 make_site() {
   local root="$1"
   local release_30_1_signers="${2:-signer missing}"
@@ -13,8 +14,14 @@ make_site() {
   mkdir -p "$root/bitcoincore.org/en"
   cat > "$root/bitcoincore.org/en/releasesrss.xml" << 'EOF'
 <rss><channel>
-<item><title>Bitcoin Core 30.1</title><pubDate>Mon, 02 Feb 2026 00:00:00 +0000</pubDate></item>
-<item><title>Bitcoin Core 30.0</title><pubDate>Thu, 01 Jan 2026 00:00:00 +0000</pubDate></item>
+<item>
+<title>Bitcoin Core 30.1</title>
+<pubDate>Mon, 02 Feb 2026 00:00:00 +0000</pubDate>
+</item>
+<item>
+<title>Bitcoin Core 30.0</title>
+<pubDate>Thu, 01 Jan 2026 00:00:00 +0000</pubDate>
+</item>
 </channel></rss>
 EOF
 
@@ -33,7 +40,8 @@ EOF
   done
 
   if [ "$is_release_30_1_tampered" = true ]; then
-    echo 'changed' >> "$root/bitcoincore.org/bin/bitcoin-core-30.1/bitcoin-30.1.zip"
+    echo 'changed' \
+      >> "$root/bitcoincore.org/bin/bitcoin-core-30.1/bitcoin-30.1.zip"
   fi
 }
 
@@ -56,60 +64,66 @@ setup() {
   export FAKE_CURL_LOG="$BATS_TEST_TMPDIR/downloads"
 }
 
+run_bitcoin_core() {
+  run "$repo_dir/packages/bitcoin_core/verify.sh"
+}
+
 downloaded_binaries() {
-  grep -v SHA256SUMS "$FAKE_CURL_LOG" 2> /dev/null | sort | tr '\n' ' ' | sed 's/ $//'
+  grep -v SHA256SUMS "$FAKE_CURL_LOG" 2> /dev/null \
+    | sort | tr '\n' ' ' | sed 's/ $//'
 }
 
 @test 'publishes every file of every new release' {
-  run "$repo_dir/packages/bitcoin_core/verify.sh"
+  run_bitcoin_core
 
   [ "$status" -eq 0 ]
-  [ "$(published)" = 'bitcoin-30.0.tar.gz bitcoin-30.0.zip bitcoin-30.1.tar.gz bitcoin-30.1.zip' ]
+  published_is bitcoin-30.0.tar.gz bitcoin-30.0.zip \
+    bitcoin-30.1.tar.gz bitcoin-30.1.zip
   [ "$(state_of bitcoin_core)" = '2026-02-02T00:00:00+0000' ]
   [ -z "$(leftover_files bitcoin_core)" ]
 }
 
 @test 'downloads only the files that are not published yet' {
-  run "$repo_dir/packages/bitcoin_core/verify.sh"
+  run_bitcoin_core
   rm "$XDG_CONFIG_HOME/verify-from-gpg/bitcoin_core" "$FAKE_CURL_LOG"
   grep -v -e 30.0.zip -e 30.1.tar.gz "$FAKE_NAK_LOG" > "$FAKE_NAK_LOG.new"
   mv "$FAKE_NAK_LOG.new" "$FAKE_NAK_LOG"
 
-  run "$repo_dir/packages/bitcoin_core/verify.sh"
+  run_bitcoin_core
 
   [ "$status" -eq 0 ]
   [ "$(downloaded_binaries)" = 'bitcoin-30.0.zip bitcoin-30.1.tar.gz' ]
 }
 
-@test 'exits without downloading from a release that is not signed by a listed key' {
-  FAKE_CURL_ROOT="$BATS_FILE_TMPDIR/site-unlisted-signer" run "$repo_dir/packages/bitcoin_core/verify.sh"
+@test 'exits without downloading from a release not signed by a listed key' {
+  FAKE_CURL_ROOT="$BATS_FILE_TMPDIR/site-unlisted-signer" run_bitcoin_core
 
   [ "$status" -eq 1 ]
   [ "$(downloaded_binaries)" = 'bitcoin-30.0.tar.gz bitcoin-30.0.zip' ]
-  [ "$(published)" = 'bitcoin-30.0.tar.gz bitcoin-30.0.zip' ]
+  published_is bitcoin-30.0.tar.gz bitcoin-30.0.zip
   [ "$(state_of bitcoin_core)" = '2026-01-01T00:00:00+0000' ]
 }
 
-@test 'exits without publishing or recording a file that fails its hash check' {
-  FAKE_CURL_ROOT="$BATS_FILE_TMPDIR/site-tampered" run "$repo_dir/packages/bitcoin_core/verify.sh"
+@test 'exits without publishing or recording a file that fails its hash' {
+  FAKE_CURL_ROOT="$BATS_FILE_TMPDIR/site-tampered" run_bitcoin_core
 
   [ "$status" -eq 1 ]
-  [ "$(published)" = 'bitcoin-30.0.tar.gz bitcoin-30.0.zip bitcoin-30.1.tar.gz' ]
+  published_is bitcoin-30.0.tar.gz bitcoin-30.0.zip bitcoin-30.1.tar.gz
   [ "$(state_of bitcoin_core)" = '2026-01-01T00:00:00+0000' ]
 }
 
 @test 'exits 1 when the release feed cannot be fetched' {
-  FAKE_CURL_FAIL=releasesrss.xml run "$repo_dir/packages/bitcoin_core/verify.sh"
+  FAKE_CURL_FAIL=releasesrss.xml run_bitcoin_core
 
   [ "$status" -eq 1 ]
   [ -z "$(state_of bitcoin_core)" ]
 }
 
 @test 'exits without recording the release when a download fails' {
-  FAKE_CURL_FAIL=bitcoin-30.1.zip run "$repo_dir/packages/bitcoin_core/verify.sh"
+  FAKE_CURL_FAIL=bitcoin-30.1.zip run_bitcoin_core
 
   [ "$status" -eq 1 ]
-  [ "$(published)" = 'bitcoin-30.0.tar.gz bitcoin-30.0.zip bitcoin-30.1.tar.gz' ]
+  published_is bitcoin-30.0.tar.gz bitcoin-30.0.zip bitcoin-30.1.tar.gz
   [ "$(state_of bitcoin_core)" = '2026-01-01T00:00:00+0000' ]
   [ -z "$(leftover_files bitcoin_core)" ]
 }
