@@ -25,6 +25,7 @@ key_fingerprints=(
   'C491580878207F03C3B966F9B4088CD4608A7CA1' # https://raw.githubusercontent.com/ElementsProject/lightning/refs/heads/master/contrib/keys/lagrang3.txt
   '8A079421A871D0B1083511937AB4802ED5A639F3' # https://raw.githubusercontent.com/ElementsProject/lightning/refs/heads/master/contrib/keys/daywalker90.txt
   'A57656F8004F6FD68ED99C85BE277A87802A6F08' # https://raw.githubusercontent.com/ElementsProject/lightning/refs/heads/master/contrib/keys/ngoline.txt
+  '7B696A616F731337520B8A19D8F31505B581D617' # https://raw.githubusercontent.com/ElementsProject/lightning/refs/heads/master/contrib/keys/jaonoctus.txt
 )
 shasum_filename_pattern='SHA256SUMS-{{NAME}}'
 shasum_signature_filename_pattern="$shasum_filename_pattern.asc"
