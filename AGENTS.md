@@ -51,11 +51,9 @@ each package script checks a project's new releases: it downloads the release's 
 ## style
 
 - **bash 3.2**, since that's what macos ships: no `mapfile`, associative arrays, `${var,,}`, or other bash 4+ features. ci runs the tests under 3.2 on macos.
-- **lowercase**: comments, log messages, docs, commit messages, and pr descriptions are all lowercase. keep the case of identifiers, env vars, commands, paths, urls, and quoted output.
-- comments explain why, not what, in a line or two.
 - formatting is [shfmt](https://github.com/mvdan/sh), with its settings in `.editorconfig`.
 
-## before you're done
+## checks
 
 ```bash
 shfmt -d .
@@ -73,4 +71,4 @@ actionlint
 bats test
 ```
 
-add tests for new behavior in the test file for the module it changes. the fakes serve fixtures from a directory and record what's published, so tests never touch the network or the relay.
+the fakes in `test/fakes` serve fixtures from a directory and record what's published, so tests never touch the network or the relay.
