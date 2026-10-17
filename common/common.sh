@@ -125,12 +125,10 @@ verify_gpg_signature() {
   local status
   status=$(gpg --status-fd 1 --verify "${gpg_verify_args[@]}")
 
-  if [[ "$status" == *'[GNUPG:] BADSIG '* ]]; then
-    return 1
-  fi
-
-  # each signature's status lines start with NEWSIG. gpg reports a signature from a revoked or expired key as valid
-  # too, so skip revoked keys here and check expiry below.
+  # each signature's status lines start with NEWSIG. a bad signature has no VALIDSIG line, so it's ignored: it can't
+  # vouch for the data, but it doesn't undo a good one (core lightning's manifests can have both, from signers who
+  # signed an earlier version). gpg reports a signature from a revoked or expired key as valid too, so skip revoked
+  # keys here and check expiry below.
   local valid_signatures
   valid_signatures=$(awk '
     $2 == "NEWSIG" { is_revoked = 0 }

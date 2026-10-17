@@ -69,8 +69,13 @@ setup() {
   [ "$status" -eq 1 ]
 }
 
-@test 'fails when any signature is bad, even with a good one from a listed key' {
+@test 'passes for a good signature from a listed key alongside a bad one' {
   run verify_gpg_signature signer-and-bad.sig data.txt "$(fingerprint_of signer)"
+  [ "$status" -eq 0 ]
+}
+
+@test 'fails when the only signature from a listed key is bad' {
+  run verify_gpg_signature signer-and-bad.sig data.txt "$(fingerprint_of stranger)"
   [ "$status" -eq 1 ]
 }
 
