@@ -213,6 +213,13 @@ run_signed_files_release() {
   [ "$(published)" = 'faraday-linux-amd64-v0.2.14-alpha.tar.gz' ]
 }
 
+@test 'frigate' {
+  run_release frigate 1.6.1 frigate-1.6.1-manifest.txt \
+    frigate-1.6.1-manifest.txt.asc frigate_1.6.1_amd64.deb
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'frigate_1.6.1_amd64.deb' ]
+}
+
 @test 'fulcrum' {
   run_release fulcrum v2.1.3 Fulcrum-2.1.3-shasums.txt \
     Fulcrum-2.1.3-shasums.txt.asc Fulcrum-2.1.3-x86_64-linux.tar.gz
