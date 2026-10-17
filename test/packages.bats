@@ -223,3 +223,10 @@ run_release() {
   [ "$status" -eq 0 ]
   [ "$(published)" = 'Wasabi-2.8.4-arm64.AppImage' ]
 }
+
+@test 'zeus' {
+  run_release zeus v13.2.3 manifest-v13.2.3.txt manifest-v13.2.3.txt.sig \
+    zeus-v13.2.3-universal.apk
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'zeus-v13.2.3-universal.apk' ]
+}
