@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+
+# Records published events in $FAKE_NAK_LOG ("<hash> <filename>" per line) and answers queries from it.
+
+case "$1" in
+  key)
+    printf '%064d\n' 0
+    ;;
+  req)
+    for arg in "$@"; do
+      case "$arg" in
+        x=*) hash="${arg#x=}" ;;
+      esac
+    done
+
+    if grep -q "^$hash " "$FAKE_NAK_LOG" 2> /dev/null; then
+      echo "{\"kind\":1063,\"tags\":[[\"x\",\"$hash\"]]}"
+    fi
+    ;;
+  event)
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        -c) filename="$2" ;;
+        -t) [[ "$2" == x=* ]] && hash="${2#x=}" ;;
+      esac
+      shift
+    done
+
+    if [ "$filename" = "${FAKE_NAK_FAIL:-}" ]; then
+      echo 'fake nak: publish failed' >&2
+      exit 1
+    fi
+
+    echo "$hash $filename" >> "$FAKE_NAK_LOG"
+    echo 'publishing to fake relay... success.'
+    ;;
+  *)
+    echo "fake nak: unexpected command: $*" >&2
+    exit 1
+    ;;
+esac

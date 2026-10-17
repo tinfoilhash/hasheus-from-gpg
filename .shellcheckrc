@@ -1,0 +1,6 @@
+# Follow the scripts' relative `source` paths so variables defined in common/ are known.
+source-path=SCRIPTDIR
+external-sources=true
+
+# Single-quoted `$` is intentional: jaq programs and literal `$NSEC` in messages.
+disable=SC2016

@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+# Serves https://<host>/<path> from $FAKE_CURL_ROOT/<host>/<path>, failing like `curl -f` when it's missing.
+
+url=''
+is_output_to_file=false
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -O) is_output_to_file=true ;;
+    --connect-timeout|--max-time|--speed-limit|--speed-time) shift ;;
+    -*) ;;
+    *) url="$1" ;;
+  esac
+  shift
+done
+
+path="$FAKE_CURL_ROOT/${url#https://}"
+filename="${url##*/}"
+
+if [ "$filename" = "${FAKE_CURL_FAIL:-}" ] || [ ! -f "$path" ]; then
+  echo "curl: (22) The requested URL returned error: 404" >&2
+  exit 22
+fi
+
+if [ "$is_output_to_file" = false ]; then
+  cat "$path"
+  exit
+fi
+
+cp "$path" "$filename"
+
+if [ -n "${FAKE_CURL_LOG:-}" ]; then
+  echo "$filename" >> "$FAKE_CURL_LOG"
+fi

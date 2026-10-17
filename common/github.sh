@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 source "${BASH_SOURCE%/*}/common.sh"
 
 resolve_filename_pattern() {
@@ -30,8 +31,11 @@ verify_from_github() {
 
   echo '----- checking for new releases'
 
-  local new_releases=$(jaq -r --arg since "$last_release_published_at" 'map(select(.publishedAt > $since)) | reverse | .[] | "\(.tagName),\(.publishedAt)"' <<< "$releases")
-  local new_releases_count=$(printf '%s' "$new_releases" | grep -c '^')
+  local new_releases
+  new_releases=$(jaq -r --arg since "$last_release_published_at" 'map(select(.publishedAt > $since)) | reverse | .[] | "\(.tagName),\(.publishedAt)"' <<< "$releases") || exit 1
+
+  local new_releases_count
+  new_releases_count=$(printf '%s' "$new_releases" | grep -c '^')
 
   echo "new releases found: $new_releases_count"
 
@@ -62,6 +66,7 @@ verify_from_github() {
     echo '------- verifying gpg signatures'
 
     # glob expansion, use first match
+    # shellcheck disable=SC2207
     local shasum_filenames=( $(resolve_filename_pattern "$shasum_filename_pattern" "$name") )
     local shasum_filename="${shasum_filenames[0]}"
 
@@ -72,6 +77,7 @@ verify_from_github() {
     fi
 
     # glob expansion, one match per signer
+    # shellcheck disable=SC2207
     local shasum_signature_filenames=( $(resolve_filename_pattern "$shasum_signature_filename_pattern" "$name") )
 
     if [ ! -f "${shasum_signature_filenames[0]}" ]; then
@@ -114,7 +120,8 @@ verify_from_github() {
       shasum_manifest=$(gpg --decrypt "$shasum_signature_filename" 2>/dev/null)
     fi
 
-    local shasum_check=$(shasum --check --ignore-missing <<< "$shasum_manifest")
+    local shasum_check
+    shasum_check=$(shasum --check --ignore-missing <<< "$shasum_manifest")
 
     while IFS=' ' read -r hash filename_shasum <&4; do
       local filename="${filename_shasum#\*}"
@@ -132,7 +139,8 @@ verify_from_github() {
         continue
       fi
 
-      local release_asset=$(jaq -r --arg filename "$filename" '.assets[] | select(.name == $filename) | "\(.url),\(.contentType),\(.size)"' <<< "$release_assets")
+      local release_asset
+      release_asset=$(jaq -r --arg filename "$filename" '.assets[] | select(.name == $filename) | "\(.url),\(.contentType),\(.size)"' <<< "$release_assets") || exit 1
 
       if [ -z "$release_asset" ]; then
         echo 'release asset not found, exiting'

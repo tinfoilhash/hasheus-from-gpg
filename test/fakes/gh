@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+# Serves releases from $FAKE_GH_ROOT: releases.json for `release list`, and <tag>/ for each release's assets.
+
+command="$1 $2"
+tag="$3"
+
+case "$command" in
+  'release list')
+    cat "$FAKE_GH_ROOT/releases.json"
+    ;;
+  'release view')
+    for path in "$FAKE_GH_ROOT/$tag"/*; do
+      jaq -n --arg tag "$tag" --arg name "${path##*/}" --argjson size "$(wc -c < "$path")" \
+        '{ name: $name, url: ("https://github.example/" + $tag + "/" + $name), contentType: "application/octet-stream", size: $size }'
+    done | jaq -s '{ assets: . }'
+    ;;
+  'release download')
+    if [ "$tag" = "${FAKE_GH_DOWNLOAD_FAIL:-}" ]; then
+      echo 'fake gh: download failed' >&2
+      exit 1
+    fi
+
+    cp "$FAKE_GH_ROOT/$tag"/* .
+    ;;
+  *)
+    echo "fake gh: unexpected command: $*" >&2
+    exit 1
+    ;;
+esac

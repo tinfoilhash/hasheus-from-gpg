@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 package_dir=$(dirname -- "$(realpath "$0")")
-cd "$package_dir"
+cd "$package_dir" || exit 1
 
 source ../../common/github.sh
 
