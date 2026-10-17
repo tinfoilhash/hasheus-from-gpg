@@ -141,6 +141,13 @@ run_signed_files_release() {
   [ "$(published)" = 'BitBox-4.52.0-android.apk' ]
 }
 
+@test 'bitcoin keeper' {
+  run_release bitcoin_keeper v2.6.3 SHA256SUM.asc SHA256SUM.asc \
+    Bitcoin_Keeper_v2.6.3.apk SHA256SUM KEEPER_DETACHED_SIGN.sign
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'Bitcoin_Keeper_v2.6.3.apk' ]
+}
+
 @test 'bitcoin knots' {
   run_release bitcoin_knots v29.4.2.knots20260508 SHA256SUMS SHA256SUMS.asc \
     bitcoin-29.4.2.knots20260508-x86_64-linux-gnu.tar.gz
