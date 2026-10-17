@@ -234,6 +234,13 @@ run_signed_files_release() {
   [ "$(published)" = 'haven_Darwin_arm64.tar.gz' ]
 }
 
+@test 'hwi' {
+  run_release hwi 3.2.0 SHA256SUMS.txt.asc SHA256SUMS.txt.asc \
+    hwi-3.2.0-linux-x86_64.tar.gz
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'hwi-3.2.0-linux-x86_64.tar.gz' ]
+}
+
 @test 'krux' {
   run_release krux v26.09.0 SHA256SUMS SHA256SUMS.asc krux-v26.09.0.zip \
     SHA256SUMS.sig
