@@ -2,8 +2,9 @@
 config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/verify-from-gpg"
 relay='wss://verify-relay.tinfoilhash.com'
 
+# any value but 0 means a dry run, so a value like `DRY_RUN=true` can't publish for real.
 is_dry_run() {
-  [ "${DRY_RUN:-}" = 1 ]
+  [ -n "${DRY_RUN:-}" ] && [ "$DRY_RUN" != 0 ]
 }
 
 check_dependencies() {
@@ -31,17 +32,18 @@ check_dependencies() {
     echo '--- dry run: nothing will be published or recorded'
   fi
 
-  # A dry run only reads from the relay, so it can take the public key instead of the secret one.
+  # a dry run only reads from the relay, so it can take the npub instead of the nsec. the nsec wins when both are
+  # set, so a dry run checks the same key a real run would publish with.
   local key_variable='$NSEC'
 
-  if is_dry_run && [ -n "${PUBKEY:-}" ]; then
-    key_variable='$PUBKEY'
-    npub_hex="$PUBKEY"
-  elif [ -z "${NSEC:-}" ]; then
+  if [ -n "${NSEC:-}" ]; then
+    npub_hex=$(nak key public "$NSEC" < /dev/null 2> /dev/null)
+  elif is_dry_run && [ -n "${NPUB:-}" ]; then
+    key_variable='$NPUB'
+    npub_hex=$(nak decode "$NPUB" < /dev/null 2> /dev/null)
+  else
     echo '$NSEC not set, exiting'
     exit 1
-  else
-    npub_hex=$(nak key public "$NSEC" < /dev/null 2> /dev/null)
   fi
 
   # nak exits 0 for an invalid key, so check its output instead.
@@ -71,7 +73,7 @@ check_gpg_keys() {
   fi
 }
 
-# Release dates come from remote data (coldcard's from scraped filenames), so allow only timestamp characters.
+# release dates come from remote data (coldcard's from scraped filenames), so allow only timestamp characters.
 published_at_pattern='[0-9TZ:+-]+'
 
 is_valid_published_at() {
@@ -80,7 +82,7 @@ is_valid_published_at() {
   [[ "$published_at" =~ ^${published_at_pattern}$ ]]
 }
 
-# Sets `last_release_published_at` and `limit` for the package scripts.
+# sets `last_release_published_at` and `limit` for the package scripts.
 # shellcheck disable=SC2034
 source_state() {
   local package_name="$1"
@@ -94,11 +96,11 @@ source_state() {
     return
   fi
 
-  # Parse instead of sourcing so the file's contents are never run as code.
+  # parse instead of sourcing so the file's contents are never run as code.
   local state_pattern="^last_release_published_at='(${published_at_pattern})'\$"
 
   if [[ ! "$(< "$state_file")" =~ $state_pattern ]]; then
-    echo "invalid state in $state_file, exiting"
+    echo "invalid state in $state_file (delete it to check the last 3 releases again), exiting"
     exit 1
   fi
 
@@ -127,24 +129,47 @@ verify_gpg_signature() {
     return 1
   fi
 
-  # Fingerprints are allowlisted by signing subkey or primary key, so match either.
-  local signer_fingerprints
-  signer_fingerprints=$(awk '$2 == "VALIDSIG" { print $3; print $NF }' <<< "$status")
+  # each signature's status lines start with NEWSIG. gpg reports a signature from a revoked or expired key as valid
+  # too, so skip revoked keys here and check expiry below.
+  local valid_signatures
+  valid_signatures=$(awk '
+    $2 == "NEWSIG" { is_revoked = 0 }
+    $2 == "REVKEYSIG" { is_revoked = 1 }
+    $2 == "VALIDSIG" && !is_revoked { print $3, $NF, $5 }
+  ' <<< "$status")
 
-  local key_fingerprint
-  for key_fingerprint in "${key_fingerprints[@]}"; do
-    if grep -Fxqi "$key_fingerprint" <<< "$signer_fingerprints"; then
+  local signing_fingerprint primary_fingerprint signed_at
+  while read -r signing_fingerprint primary_fingerprint signed_at; do
+    # fingerprints are listed by signing subkey or primary key, so match either.
+    if printf '%s\n' "${key_fingerprints[@]}" | grep -Fxqi -e "$signing_fingerprint" -e "$primary_fingerprint" \
+      && was_key_unexpired_at "$signing_fingerprint" "$signed_at"; then
       return 0
     fi
-  done
+  done <<< "$valid_signatures"
 
   return 1
+}
+
+# whether a signing key and its primary key hadn't expired yet at the given time. a signature made before a key
+# expired still counts, so older releases keep verifying.
+was_key_unexpired_at() {
+  local fingerprint="$1"
+  local time="$2"
+
+  gpg --with-colons --fixed-list-mode --list-keys "$fingerprint" 2> /dev/null \
+    | awk -F: -v fingerprint="$fingerprint" -v time="$time" '
+      function is_unexpired(expires_at) { return expires_at == "" || time + 0 < expires_at + 0 }
+      $1 == "pub" || $1 == "sub" { expires_at = $7; is_primary = $1 == "pub" }
+      $1 == "fpr" && is_primary { primary_expires_at = expires_at; is_primary = 0 }
+      $1 == "fpr" && $10 == fingerprint { key_expires_at = expires_at }
+      END { exit !(is_unexpired(primary_expires_at) && is_unexpired(key_expires_at)) }
+    '
 }
 
 is_published_to_verify() {
   local hash="$1"
 
-  # About 1 in 20 queries fails to reach the relay. Treating that as "not published" would publish a duplicate, so
+  # about 1 in 20 queries fails to reach the relay. treating that as "not published" would publish a duplicate, so
   # retry, then stop the run.
   local attempt
   for attempt in 1 2 3; do
@@ -155,6 +180,7 @@ is_published_to_verify() {
       return
     fi
 
+    echo "relay query failed (attempt $attempt of 3)"
     sleep "$attempt"
   done
 
@@ -177,7 +203,7 @@ publish_to_verify() {
   nak event -k 1063 -c "$filename" -t x="$hash" -t url="$url" -t m="$content_type" -t size="$size" --sec "$NSEC" "$relay" < /dev/null
 }
 
-# Prints the file name from a manifest line, without shasum's `*` (binary mode) or a leading `./`.
+# prints the file name from a manifest line, without shasum's `*` (binary mode) or a leading `./`.
 manifest_filename() {
   local shasum_line="$1"
 
@@ -188,8 +214,8 @@ manifest_filename() {
   echo "${filename#./}"
 }
 
-# Publishes the file on a verified manifest line: skips it if it's already published, otherwise downloads it, checks
-# it against the line, and publishes it. The content type and size default to the downloaded file's.
+# publishes the file on a verified manifest line: skips it if it's already published, otherwise downloads it, checks
+# it against the line, and publishes it. the content type and size default to the downloaded file's.
 publish_file() {
   local shasum_line="$1"
   local url="$2"
@@ -229,8 +255,9 @@ publish_file() {
     echo 'verified: yes'
   else
     echo 'verified: no'
-    echo 'file not verified, skipping'
-    return
+    # a failed download can also cause this, so exit without recording the release and try again on the next run.
+    echo 'file not verified, exiting'
+    exit 1
   fi
 
   echo '------- publishing event'
@@ -242,14 +269,22 @@ download_file() {
   local url="$1"
   local filename="${2:-${url##*/}}"
 
-  # Release files can be several GB, so abort stalled transfers instead of capping the total time.
+  # release files can be several gb, so abort stalled transfers instead of capping the total time.
   curl -fL --connect-timeout 30 --speed-limit 1024 --speed-time 60 -o "$filename" "$url"
 }
 
 # `package_dir` is set by each package script.
 # shellcheck disable=SC2154
 start_release() {
-  # Start every attempt from an empty directory so a partial download from an interrupted run is never reused.
+  local published_at="$1"
+
+  # check the date before anything is published, since it's recorded only after.
+  if ! is_valid_published_at "$published_at"; then
+    echo "invalid release date: $published_at, exiting"
+    exit 1
+  fi
+
+  # start every attempt from an empty directory so a partial download from an interrupted run is never reused.
   release_dir=$(mktemp -d "$package_dir/release.XXXXXX") || exit 1
   trap 'rm -rf "$release_dir"' EXIT
 
@@ -261,11 +296,6 @@ complete_release() {
   local published_at="$2"
 
   local state_file="$config_dir/$package_name"
-
-  if ! is_valid_published_at "$published_at"; then
-    echo "invalid release date: $published_at, exiting"
-    exit 1
-  fi
 
   cd "$package_dir" || exit 1
   rm -r "$release_dir"

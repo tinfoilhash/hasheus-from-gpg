@@ -6,8 +6,8 @@ gpg_quiet() {
   gpg -q --batch --pinentry-mode loopback --passphrase '' --yes "$@" 2> /dev/null
 }
 
-# Creates throwaway keys: "signer" and "other" (listed by tests), "stranger" (in the keyring but not listed), and
-# "missing" (kept in a separate keyring, so its signatures can't be checked). Each key signs with a subkey.
+# creates throwaway keys: "signer" and "other" (listed by tests), "stranger" (in the keyring but not listed), and
+# "missing" (kept in a separate keyring, so its signatures can't be checked). each key signs with a subkey.
 setup_keyring() {
   # gpg-agent's socket path has a short length limit, so keep the keyrings out of the long default temp directory.
   GNUPGHOME=$(mktemp -d /tmp/verify-from-gpg-test.XXXXXX)
@@ -25,8 +25,9 @@ setup_keyring() {
 }
 
 teardown_keyring() {
-  GNUPGHOME="$GNUPGHOME" gpgconf --kill gpg-agent
-  GNUPGHOME="$MISSING_GNUPGHOME" gpgconf --kill gpg-agent
+  # an empty GNUPGHOME means the default keyring, so never stop its agent.
+  GNUPGHOME="${GNUPGHOME:?}" gpgconf --kill gpg-agent
+  GNUPGHOME="${MISSING_GNUPGHOME:?}" gpgconf --kill gpg-agent
   rm -rf "${GNUPGHOME:?}" "${MISSING_GNUPGHOME:?}"
 }
 
@@ -52,7 +53,7 @@ home_of() {
   fi
 }
 
-# Writes a detached signature, or several concatenated into one file when given several signers.
+# writes a detached signature, or several concatenated into one file when given several signers.
 sign_detached() {
   local signers="$1"
   local data_filename="$2"
@@ -74,7 +75,7 @@ sign_clear() {
   GNUPGHOME="$(home_of "$name")" gpg_quiet -u "$name@test" --clearsign -o "$signed_filename" "$data_filename"
 }
 
-# Copies common/ (and a package, if given) into a scratch repo, with the fakes first on PATH.
+# copies common/ (and a package, if given) into a scratch repo, with the fakes first on PATH.
 create_repo() {
   local package_name="${1:-}"
 
@@ -92,7 +93,7 @@ create_repo() {
   export FAKE_NAK_LOG="$BATS_TEST_TMPDIR/published"
 }
 
-# Replaces a package script's key fingerprints with the given ones.
+# replaces a package script's key fingerprints with the given ones.
 set_key_fingerprints() {
   local package_name="$1"
   shift

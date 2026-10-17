@@ -21,9 +21,9 @@ check_gpg_keys "${key_fingerprints[@]}"
 
 echo '----- getting list of releases'
 
-# Rows also link to security status pages, so collect every link and keep the firmware files.
+# rows also link to security status pages, so collect every link and keep the firmware files.
 releases=$(
-  # Fail if any command fails, not just the last, so a failed fetch isn't read as no new releases.
+  # fail if any command fails, not just the last, so a failed fetch isn't read as no new releases.
   set -o pipefail
 
   curl -fsS --max-time 60 https://coldcard.com/downloads/all \
@@ -32,7 +32,7 @@ releases=$(
 
 echo '----- checking for new releases'
 
-new_releases=$(jaq -r --arg since "$last_release_published_at" --argjson limit "$limit" '.urls | map(select(endswith(".dfu"))) | unique | map({ name: split("/") | last, url: ("https://coldcard.com" + .) }) | map(select(.name[0:15] > $since)) | sort_by(.name[0:15]) | reverse | [limit($limit; .[])] | reverse | .[] | "\(.name),\(.name[0:15]),\(.url)"' <<< "$releases") || exit 1
+new_releases=$(jaq -r --arg since "$last_release_published_at" --arg limit "$limit" '.urls | map(select(endswith(".dfu"))) | unique | map({ name: split("/") | last, url: ("https://coldcard.com" + .) }) | map(select(.name[0:15] > $since)) | sort_by(.name[0:15]) | reverse | [limit($limit | tonumber; .[])] | reverse | .[] | "\(.name),\(.name[0:15]),\(.url)"' <<< "$releases") || exit 1
 new_releases_count=$(printf '%s' "$new_releases" | grep -c '^')
 
 echo "new releases found: $new_releases_count"
@@ -62,18 +62,18 @@ fi
 shasum_manifest=$(gpg --decrypt "$shasum_signed_filename" 2> /dev/null)
 rm "$shasum_signed_filename"
 
-# Read from a separate file descriptor so the loop runs in this shell (letting `exit` stop the script) and nothing
+# read from a separate file descriptor so the loop runs in this shell (letting `exit` stop the script) and nothing
 # inside it can consume the list.
 while IFS=',' read -r name published_at url <&3; do
   echo "----- new release: $name ($published_at)"
 
-  start_release
+  start_release "$published_at"
 
   echo "------- processing file: $name"
 
   shasum_line=$(awk -v name="$name" '$2 == name || $2 == "*" name' <<< "$shasum_manifest" | head -n 1)
 
-  # The site can list new firmware before signatures.txt has its hash, so try again on the next run.
+  # the site can list new firmware before signatures.txt has its hash, so try again on the next run.
   if [ -z "$shasum_line" ]; then
     echo "$name isn't in $shasum_signed_filename yet, exiting"
     exit 1

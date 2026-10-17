@@ -53,12 +53,14 @@ NSEC={{nsec...}} ./packages/{{name}}/verify.sh
 
 on the first run, only the last 3 releases of a package are verified. subsequent runs verify up to 30 releases since the previous run. the date/time of the last release verified is stored in `~/.config/verify-from-gpg/{{name}}`.
 
+a release whose signature isn't from a listed key, or whose file fails its hash check, stops that package's run without being recorded, so it's tried again on the next run. a signature only counts if its key isn't revoked and the signature was made before the key's expiry date. gpg only knows a key's current expiry date, so if a key lapses and its owner extends it, signatures made during the lapse count too.
+
 ### dry run
 
-a dry run does everything except publish events and record the last release, so it's safe to run anywhere. it only reads from the relay, so it can take your public key (hex) instead of your nsec:
+a dry run does everything except publish events and record the last release, so it's safe to run anywhere. any `DRY_RUN` value but `0` means a dry run. it only reads from the relay, so it can take your npub instead of your nsec:
 
 ```bash
-DRY_RUN=1 PUBKEY={{hex pubkey...}} ./verify_all.sh
+DRY_RUN=1 NPUB={{npub...}} ./verify_all.sh
 ```
 
 ## development

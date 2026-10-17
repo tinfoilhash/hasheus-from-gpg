@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# Serves releases from $FAKE_GH_ROOT: releases.json for `release list`, and <tag>/ for each release's assets, whose
-# URLs point at https://github.example/<tag>/<name> (for the fake curl to serve). `api <endpoint>` serves
+# serves releases from $FAKE_GH_ROOT: releases.json for `release list`, and <tag>/ for each release's assets, whose
+# urls point at https://github.example/<tag>/<name> (for the fake curl to serve). `api <endpoint>` serves
 # $FAKE_GH_ROOT/api/<endpoint without its query>.json.
 
 case "$1 $2" in

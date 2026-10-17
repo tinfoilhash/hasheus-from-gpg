@@ -42,7 +42,7 @@ setup() {
   run source_state test
 
   [ "$status" -eq 1 ]
-  [ "$output" = "invalid state in $state_file, exiting" ]
+  [ "$output" = "invalid state in $state_file (delete it to check the last 3 releases again), exiting" ]
   [ ! -e "$BATS_TEST_TMPDIR/ran" ]
 }
 
@@ -58,7 +58,7 @@ setup() {
 @test 'records the release and removes its directory' {
   mkdir -p "${state_file%/*}"
   package_dir="$BATS_TEST_TMPDIR"
-  start_release
+  start_release '2026-10-01T16:46:15Z'
 
   complete_release test '2026-10-01T16:46:15Z'
 
@@ -66,13 +66,13 @@ setup() {
   [ ! -e "$release_dir" ]
 }
 
-@test 'refuses to record a release date with non-timestamp characters' {
+@test 'refuses to start a release with non-timestamp characters in its date' {
   set_state test '2026-07-31T1608'
   package_dir="$BATS_TEST_TMPDIR"
-  start_release
 
-  run complete_release test "2026-01-01';touch $BATS_TEST_TMPDIR/ran;'"
+  run start_release "2026-01-01';touch $BATS_TEST_TMPDIR/ran;'"
 
   [ "$status" -eq 1 ]
+  [ -z "$(find "$package_dir" -maxdepth 1 -name 'release.*')" ]
   [ "$(state_of test)" = '2026-07-31T1608' ]
 }

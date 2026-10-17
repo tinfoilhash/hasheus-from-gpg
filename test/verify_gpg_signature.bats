@@ -16,9 +16,22 @@ setup_file() {
   sign_clear signer data.txt signer.asc
   sign_clear stranger data.txt stranger.asc
 
-  # One good signature from a listed key plus one bad signature.
+  # one good signature from a listed key plus one bad signature.
   sign_detached stranger tampered.txt stranger-over-tampered.sig
   cat signer.sig stranger-over-tampered.sig > signer-and-bad.sig
+
+  # a revoked key, using the revocation certificate gpg saves when it makes a key.
+  gpg_quiet --quick-gen-key revoked@test ed25519 sign never
+  sign_detached revoked data.txt revoked.sig
+  sed 's/^:-----/-----/' "$GNUPGHOME/openpgp-revocs.d/$(fingerprint_of revoked).rev" | gpg_quiet --import
+
+  # a key that expired at the end of 2020, with signatures made before and after that. gpg won't sign with an expired
+  # key, so sign first and then set the expiry.
+  gpg_quiet --faked-system-time 20200101T000000! --quick-gen-key expired@test ed25519 sign never
+  gpg_quiet --faked-system-time 20200601T000000! -u expired@test --detach-sign -o before-expiry.sig data.txt
+  gpg_quiet --faked-system-time 20220101T000000! -u expired@test --detach-sign -o after-expiry.sig data.txt
+  gpg_quiet --faked-system-time 20200102T000000! --quick-set-expire "$(fingerprint_of expired)" 20201231T000000
+  cat signer.sig after-expiry.sig > signer-and-after-expiry.sig
 }
 
 teardown_file() {
@@ -84,4 +97,24 @@ setup() {
 @test 'fails for a listed subkey that did not make the signature' {
   run verify_gpg_signature stranger.sig data.txt "$(signing_subkey_of signer)"
   [ "$status" -eq 1 ]
+}
+
+@test 'fails for a signature from a revoked key' {
+  run verify_gpg_signature revoked.sig data.txt "$(fingerprint_of revoked)"
+  [ "$status" -eq 1 ]
+}
+
+@test 'passes for a signature made before the key expired' {
+  run verify_gpg_signature before-expiry.sig data.txt "$(fingerprint_of expired)"
+  [ "$status" -eq 0 ]
+}
+
+@test 'fails for a signature made after the key expired' {
+  run verify_gpg_signature after-expiry.sig data.txt "$(fingerprint_of expired)"
+  [ "$status" -eq 1 ]
+}
+
+@test 'passes for a good signature from another listed key alongside one made after expiry' {
+  run verify_gpg_signature signer-and-after-expiry.sig data.txt "$(fingerprint_of expired)" "$(fingerprint_of signer)"
+  [ "$status" -eq 0 ]
 }

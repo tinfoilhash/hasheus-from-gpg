@@ -16,6 +16,10 @@ jobs:
         # macos runs the scripts under bash 3.2, which is what catches compatibility mistakes.
         os: [macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        # `shell: bash` adds pipefail, which the default shell doesn't.
+        shell: bash
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -32,10 +36,15 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install actionlint bats-core gnupg hq jaq shellcheck shfmt
 
+      # the scripts run with `env bash`, so make sure that's still macos's bash 3.2 and not a newer one on the path.
+      - name: check bash version (macos)
+        if: runner.os == 'macOS'
+        run: bash --version | head -n 1 | grep -F 'version 3.2'
+
       - name: lint
         run: |
           shfmt -d .
-          shfmt -f . | xargs shellcheck
+          shfmt -f . | tr '\n' '\0' | xargs -0 shellcheck
           actionlint
 
       - name: test

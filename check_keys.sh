@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# Audits every package's listed keys: imported and usable, still published at the listed url, and no keys in a
-# project's key folder that aren't listed. With --import, imports each listed key from its url first.
+# audits every package's listed keys: imported and usable, still published at the listed url, and no keys in a
+# project's key folder that aren't listed. with --import, imports each listed key from its url first.
 
 cd "$(dirname -- "$(realpath "$0")")" || exit 1
 
@@ -23,7 +23,7 @@ report_warning() {
   warning_count=$((warning_count + 1))
 }
 
-# Prints "<fingerprint> <url>" for each key a package lists.
+# prints "<fingerprint> <url>" for each key a package lists.
 listed_keys() {
   local package_name="$1"
 
@@ -50,14 +50,14 @@ import_key() {
   local home
   home=$(mktemp -d /tmp/verify-from-gpg-keys.XXXXXX) || exit 1
 
-  # Import only the listed key, even when the file has others.
+  # import only the listed key, even when the file has others.
   GNUPGHOME="$home" gpg -q --batch --import "$key_filename" 2> /dev/null
   GNUPGHOME="$home" gpg --batch --export "$fingerprint" | gpg -q --batch --import 2> /dev/null
   GNUPGHOME="$home" gpgconf --kill gpg-agent
   rm -rf "${home:?}"
 }
 
-# Prints "ok", or why the key can't verify signatures.
+# prints "ok", or why the key can't verify signatures.
 key_status() {
   local fingerprint="$1"
 
@@ -87,7 +87,7 @@ key_status() {
   echo "$status"
 }
 
-# Prints "<owner>/<repo> <ref> <directory>" for a key in a folder on raw.githubusercontent.com, or nothing otherwise.
+# prints "<owner>/<repo> <ref> <directory>" for a key in a folder on raw.githubusercontent.com, or nothing otherwise.
 github_key_directory() {
   local url="$1"
 
@@ -101,7 +101,7 @@ github_key_directory() {
   local ref="${rest%%/*}"
   local key_path="${rest#*/}"
 
-  # A key at the repo's root isn't in a key folder.
+  # a key at the repo's root isn't in a key folder.
   [[ "$key_path" == */* ]] || return
 
   echo "$owner/$repo $ref ${key_path%/*}"
@@ -115,7 +115,7 @@ check_listed_keys() {
   while read -r fingerprint url; do
     local label="${url##*/}"
 
-    # A keyserver lookup has no file name, so name the host instead.
+    # a keyserver lookup has no file name, so name the host instead.
     if [[ "$label" == *'?'* ]]; then
       label="${url#*://}"
       label="${label%%/*}"
@@ -153,23 +153,29 @@ check_unlisted_keys() {
 
   local repo ref directory
   while read -r repo ref directory; do
+    local listing
+    if ! listing=$(gh api "repos/$repo/contents/$directory?ref=$ref"); then
+      report_problem "couldn't list $repo/$directory to check for unlisted keys"
+      continue
+    fi
+
     local filename download_url
     while read -r filename download_url; do
       if grep -Fq "/$directory/$filename" <<< "$listed_urls"; then
         continue
       fi
 
-      # The same key can be in a folder under two names, like bitcoin core's sedited.gpg and TheCharlatan.gpg.
       local key_filename="$key_dir/unlisted"
-      if curl -fsSL --max-time 30 -o "$key_filename" "$download_url" 2> /dev/null && is_any_key_in_file "$listed_fingerprints" "$key_filename"; then
+      if ! curl -fsSL --max-time 30 -o "$key_filename" "$download_url" 2> /dev/null; then
+        report_problem "couldn't download $repo/$directory/$filename to check it"
         continue
       fi
 
-      report_problem "$repo has $directory/$filename, which isn't listed"
-    done < <(
-      gh api "repos/$repo/contents/$directory?ref=$ref" \
-        | jaq -r '.[] | select(.type == "file" and (.name | test("\\.(asc|gpg|txt)$"))) | "\(.name) \(.download_url)"'
-    )
+      # the same key can be in a folder under two names, like bitcoin core's sedited.gpg and TheCharlatan.gpg.
+      if ! is_any_key_in_file "$listed_fingerprints" "$key_filename"; then
+        report_problem "$repo has $directory/$filename, which isn't listed"
+      fi
+    done < <(jaq -r '.[] | select(.type == "file" and (.name | test("\\.(asc|gpg|txt)$"))) | "\(.name) \(.download_url)"' <<< "$listing")
   done < <(
     while read -r url; do
       github_key_directory "$url"

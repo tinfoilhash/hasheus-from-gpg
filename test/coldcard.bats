@@ -3,7 +3,7 @@
 # shellcheck source=test/test_helper.bash
 source "$BATS_TEST_DIRNAME/test_helper.bash"
 
-# Writes a fake coldcard.com whose downloads table links each row to a status page before the firmware, plus a
+# writes a fake coldcard.com whose downloads table links each row to a status page before the firmware, plus a
 # signatures.txt on raw.githubusercontent.com signed by the given key.
 make_site() {
   local root="$1"
@@ -33,13 +33,13 @@ setup_file() {
   make_site "$BATS_FILE_TMPDIR/site" signer
   make_site "$BATS_FILE_TMPDIR/site-unlisted-signer" stranger
 
-  # A site that lists firmware signatures.txt doesn't have yet.
+  # a site that lists firmware signatures.txt doesn't have yet.
   make_site "$BATS_FILE_TMPDIR/site-unsigned-firmware" signer
   local downloads_dir="$BATS_FILE_TMPDIR/site-unsigned-firmware/coldcard.com/downloads"
   sed -i.bak 's|<tbody>|<tbody><tr><td><a href="/downloads/2026-10-31T1200-v5.6.4-mk-coldcard.dfu">new</a></td></tr>|' "$downloads_dir/all"
   echo 'firmware 5.6.4' > "$downloads_dir/2026-10-31T1200-v5.6.4-mk-coldcard.dfu"
 
-  # A site whose newest firmware changed after it was hashed.
+  # a site whose newest firmware changed after it was hashed.
   make_site "$BATS_FILE_TMPDIR/site-tampered" signer
   echo 'changed' >> "$BATS_FILE_TMPDIR/site-tampered/coldcard.com/downloads/2026-09-30T2026-v5.6.3-mk-coldcard.dfu"
 }
@@ -81,12 +81,13 @@ setup() {
   [ -z "$(leftover_files coldcard)" ]
 }
 
-@test 'does not publish firmware that fails its hash check' {
+@test 'exits without publishing or recording firmware that fails its hash check' {
   FAKE_CURL_ROOT="$BATS_FILE_TMPDIR/site-tampered" run "$repo_dir/packages/coldcard/verify.sh"
 
-  [ "$status" -eq 0 ]
-  [[ "$output" == *'file not verified, skipping'* ]]
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'file not verified, exiting'* ]]
   [ "$(published)" = '2026-08-20T1336-v5.6.1-mk-coldcard.dfu' ]
+  [ "$(state_of coldcard)" = '2026-08-20T1336' ]
 }
 
 @test 'exits without recording firmware that signatures.txt does not have yet' {

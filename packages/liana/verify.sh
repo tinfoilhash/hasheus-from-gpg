@@ -12,13 +12,13 @@ echo '--- verifying liana'
 package_name='liana'
 repo='wizardsardine/liana'
 key_fingerprints=(
-  '5B63F3B97699C7EEF3B040B19B7F629A53E77B83' # http://keyserver.ubuntu.com/pks/lookup?op=get&search=0x5b63f3b97699c7eef3b040b19b7f629a53e77b83
+  '5B63F3B97699C7EEF3B040B19B7F629A53E77B83' # https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x5b63f3b97699c7eef3b040b19b7f629a53e77b83
 )
 
 shasum_filename_pattern() {
   local name="$1"
 
-  # Remove "v" before version number. This needs a backreference, which parameter expansion doesn't support.
+  # remove "v" before version number. this needs a backreference, which parameter expansion doesn't support.
   local name_without_v
   # shellcheck disable=SC2001
   name_without_v=$(sed 's/v\([0-9]\)/\1/g' <<< "$name")
