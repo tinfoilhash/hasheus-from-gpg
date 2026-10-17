@@ -2,7 +2,9 @@
 
 # records published events in $FAKE_NAK_LOG ("<hash> <filename>" per line) and
 # answers queries from it. queries fail like an unreachable relay while
-# $FAKE_NAK_REQ_FAILURES (a file holding a count) is above 0.
+# $FAKE_NAK_REQ_FAILURES (a file holding a count) is above 0, and so do
+# publishes while $FAKE_NAK_EVENT_FAILURES is. with $FAKE_NAK_EVENT_LANDS set,
+# those failed publishes still reach the relay, like a reply that timed out.
 
 case "$1" in
   key)
@@ -45,6 +47,19 @@ case "$1" in
 
     if [ "$filename" = "${FAKE_NAK_FAIL:-}" ]; then
       echo 'fake nak: publish failed' >&2
+      exit 1
+    fi
+
+    failures="${FAKE_NAK_EVENT_FAILURES:-}"
+
+    if [ -n "$failures" ] && [ "$(cat "$failures")" -gt 0 ]; then
+      echo $(($(cat "$failures") - 1)) > "$failures"
+
+      if [ -n "${FAKE_NAK_EVENT_LANDS:-}" ]; then
+        echo "$hash $filename" >> "$FAKE_NAK_LOG"
+      fi
+
+      echo 'failed to connect to any of the given relays.' >&2
       exit 1
     fi
 

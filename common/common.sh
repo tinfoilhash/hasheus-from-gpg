@@ -214,9 +214,27 @@ publish_to_verify() {
     return
   fi
 
-  nak event -k 1063 -c "$filename" \
-    -t x="$hash" -t url="$url" -t m="$content_type" -t size="$size" \
-    --sec "$NSEC" "$relay" < /dev/null
+  # a publish can fail to reach the relay too, so retry. after each failure,
+  # check that it didn't land anyway, so the event isn't published twice.
+  local attempt
+  for attempt in 1 2 3; do
+    if nak event -k 1063 -c "$filename" \
+      -t x="$hash" -t url="$url" -t m="$content_type" -t size="$size" \
+      --sec "$NSEC" "$relay" < /dev/null; then
+      return
+    fi
+
+    echo "publish failed (attempt $attempt of 3)"
+    sleep "$attempt"
+
+    if is_published_to_verify "$hash"; then
+      echo 'event was published after all'
+      return
+    fi
+  done
+
+  echo 'publish failed, exiting'
+  return 1
 }
 
 # prints the file name from a manifest line, without shasum's `*` (binary mode)
