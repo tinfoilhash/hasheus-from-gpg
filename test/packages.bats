@@ -169,6 +169,13 @@ run_signed_files_release() {
   [ "$(published)" = 'Blockstream-x86_64.AppImage' ]
 }
 
+@test 'chantools' {
+  run_release chantools v0.14.3 manifest-v0.14.3.txt manifest-v0.14.3.sig \
+    chantools-linux-amd64-v0.14.3.tar.gz
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'chantools-linux-amd64-v0.14.3.tar.gz' ]
+}
+
 @test 'core lightning' {
   run_release core_lightning v26.06.9 SHA256SUMS-v26.06.9 \
     SHA256SUMS-v26.06.9.asc clightning-v26.06.9-Ubuntu-24.04-amd64.tar.xz \
