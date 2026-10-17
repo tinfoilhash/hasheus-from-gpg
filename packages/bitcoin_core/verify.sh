@@ -49,7 +49,7 @@ fi
 echo '----- getting list of releases'
 
 releases=$(
-  curl -s https://bitcoincore.org/en/releasesrss.xml \
+  curl -fsS --max-time 60 https://bitcoincore.org/en/releasesrss.xml \
   | xmllint --xpath '//item/title/text()|//item/pubDate/text()' - \
   | paste - - \
   | jaq -Rn '[inputs | split("\t") as [$name, $published_at] | { name: $name, version: $name[13:], published_at: $published_at | strptime("%a, %d %b %Y %H:%M:%S %z") | strftime("%Y-%m-%dT%H:%M:%S%z") }]'
@@ -70,25 +70,20 @@ echo "$new_releases" | while IFS=',' read -r name version published_at; do
   echo "- $name ($published_at)"
 done
 
-echo "$new_releases" | while IFS=',' read -r name version published_at; do
+# Read from a separate file descriptor so the loop runs in this shell (letting `exit` stop the script) and nothing
+# inside it can consume the list.
+while IFS=',' read -r name version published_at <&3; do
   echo "----- new release: $name ($published_at)"
 
   version_bin_dir_url="https://bitcoincore.org/bin/bitcoin-core-$version"
 
-  echo "------- downloading assets to directory: $version"
+  start_release
 
-  mkdir "$version" &> /dev/null
-  cd "$version"
-  
   echo '------- downloading hashes'
 
   shasum_filename='SHA256SUMS'
 
-  if [ -f "$shasum_filename" ]; then
-    echo 'file already exists, skipping'
-  else
-    curl -O "$version_bin_dir_url/$shasum_filename"
-  fi
+  download_file "$version_bin_dir_url/$shasum_filename" || exit 1
 
   shasum_manifest=$(<"$shasum_filename")
 
@@ -96,27 +91,19 @@ echo "$new_releases" | while IFS=',' read -r name version published_at; do
 
   shasum_signature_filename="$shasum_filename.asc"
 
-  if [ -f "$shasum_signature_filename" ]; then
-    echo 'file already exists, skipping'
-  else
-    curl -O "$version_bin_dir_url/$shasum_signature_filename"
-  fi
+  download_file "$version_bin_dir_url/$shasum_signature_filename" || exit 1
 
-  echo "$shasum_manifest" | while IFS=' ' read -r hash filename; do
+  while IFS=' ' read -r hash filename <&4; do
     echo "------- downloading file: $filename"
 
-    if [ -f "$filename" ]; then
-      echo 'file already exists, skipping'
-    else
-      curl -O "$version_bin_dir_url/$filename"
-    fi
-  done
+    download_file "$version_bin_dir_url/$filename" || exit 1
+  done 4<<< "$shasum_manifest"
 
   echo '------- verifying gpg signatures'
 
   if ! verify_gpg_signature "$shasum_signature_filename" "$shasum_filename" "${key_fingerprints[@]}"; then
     echo 'gpg signatures verification failed, skipping'
-    complete_release "$package_name" "$version" "$published_at"
+    complete_release "$package_name" "$published_at"
     continue
   fi
 
@@ -124,7 +111,7 @@ echo "$new_releases" | while IFS=',' read -r name version published_at; do
 
   shasum_check=$(shasum --check "$shasum_filename" --ignore-missing)
 
-  echo "$shasum_manifest" | while IFS=' ' read -r hash filename; do
+  while IFS=' ' read -r hash filename <&4; do
     echo "------- processing file: $filename"
 
     if is_published_to_verify "$hash"; then
@@ -155,7 +142,7 @@ echo "$new_releases" | while IFS=',' read -r name version published_at; do
     if ! publish_to_verify "$filename" "$hash" "$url" "$content_type" "$size"; then
       exit 1
     fi
-  done
+  done 4<<< "$shasum_manifest"
 
-  complete_release "$package_name" "$version" "$published_at"
-done
+  complete_release "$package_name" "$published_at"
+done 3<<< "$new_releases"
