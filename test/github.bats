@@ -388,6 +388,20 @@ EOF
   [ "$(wc -l < "$FAKE_NAK_LOG")" -eq 2 ]
 }
 
+@test 'exits without recording after three failed publishes' {
+  write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
+  local failures="$BATS_TEST_TMPDIR/failures"
+  echo 3 > "$failures"
+
+  FAKE_NAK_EVENT_FAILURES="$failures" run_package clearsigned
+
+  [ "$status" -eq 1 ]
+  [ "$(grep -c 'publish failed (attempt' <<< "$output")" -eq 3 ]
+  [[ "$output" == *'publish failed, exiting'* ]]
+  [ -z "$(published)" ]
+  [ -z "$(state_of test)" ]
+}
+
 @test 'exits instead of publishing when the relay cannot be queried' {
   write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
   local failures="$BATS_TEST_TMPDIR/failures"
