@@ -69,6 +69,41 @@ run_release() {
   run "$repo_dir/packages/$package_name/verify.sh"
 }
 
+# writes a fake release <tag> with the asset signed as <asset><suffix>, for
+# projects that sign each file. any further arguments are extra assets that
+# aren't signed.
+run_signed_files_release() {
+  local package_name="$1"
+  local tag="$2"
+  local suffix="$3"
+  local asset="$4"
+  shift 4
+
+  create_repo "$package_name"
+  set_key_fingerprints "$package_name" "$(fingerprint_of signer)"
+
+  export FAKE_CURL_ROOT="$BATS_TEST_TMPDIR/site"
+  export FAKE_GH_ROOT="$FAKE_CURL_ROOT/github.example"
+
+  local release_dir="$FAKE_GH_ROOT/$tag"
+  mkdir -p "$release_dir"
+  cd "$release_dir" || exit 1
+
+  echo "$asset" > "$asset"
+  sign_detached signer "$asset" "$asset$suffix"
+
+  local extra_asset
+  for extra_asset in "$@"; do
+    echo "$extra_asset" > "$extra_asset"
+  done
+
+  jaq -n --arg tag "$tag" \
+    '[{ tagName: $tag, publishedAt: "2026-01-01T00:00:00Z" }]' \
+    > "$FAKE_GH_ROOT/releases.json"
+
+  run "$repo_dir/packages/$package_name/verify.sh"
+}
+
 @test 'amber' {
   ONE_SPACE_MANIFEST=1 run_release amber v6.6.9 \
     manifest-v6.6.9.txt manifest-v6.6.9.txt.sig amber-universal-v6.6.9.apk \
@@ -84,6 +119,13 @@ run_release() {
   [ "$status" -eq 0 ]
   [[ "$output" == *'file is the manifest itself, skipping'* ]]
   [ "$(published)" = 'albyhub-Server-Linux-aarch64.tar.bz2' ]
+}
+
+@test 'bisq' {
+  run_signed_files_release bisq v1.10.9 .asc Bisq-64bit-1.10.9.deb \
+    E222AA02.asc signingkey.asc
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'Bisq-64bit-1.10.9.deb' ]
 }
 
 @test 'bitcoin knots' {
