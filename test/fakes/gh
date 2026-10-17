@@ -1,20 +1,23 @@
 #!/usr/bin/env bash
 
 # Serves releases from $FAKE_GH_ROOT: releases.json for `release list`, and <tag>/ for each release's assets, whose
-# URLs point at https://github.example/<tag>/<name> (for the fake curl to serve).
+# URLs point at https://github.example/<tag>/<name> (for the fake curl to serve). `api <endpoint>` serves
+# $FAKE_GH_ROOT/api/<endpoint without its query>.json.
 
-command="$1 $2"
-tag="$3"
-
-case "$command" in
+case "$1 $2" in
   'release list')
     cat "$FAKE_GH_ROOT/releases.json"
     ;;
   'release view')
+    tag="$3"
+
     for path in "$FAKE_GH_ROOT/$tag"/*; do
       jaq -n --arg tag "$tag" --arg name "${path##*/}" --argjson size "$(wc -c < "$path")" \
         '{ name: $name, url: ("https://github.example/" + $tag + "/" + $name), contentType: "application/octet-stream", size: $size }'
     done | jaq -s '{ assets: . }'
+    ;;
+  api\ *)
+    cat "$FAKE_GH_ROOT/api/${2%%\?*}.json"
     ;;
   *)
     echo "fake gh: unexpected command: $*" >&2

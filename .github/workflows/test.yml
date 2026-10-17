@@ -33,7 +33,7 @@ jobs:
         run: brew install bats-core gnupg hq jaq shellcheck
 
       - name: lint
-        run: shellcheck test/fakes/* test/*.bash test/*.bats verify_all.sh common/*.sh packages/*/verify.sh
+        run: shellcheck check_keys.sh test/fakes/* test/*.bash test/*.bats verify_all.sh common/*.sh packages/*/verify.sh
 
       - name: test
         run: bats test
