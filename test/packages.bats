@@ -272,6 +272,14 @@ run_signed_files_release() {
   [ "$(published)" = 'taproot-assets-linux-amd64-v0.8.6.tar.gz' ]
 }
 
+@test 'trezor suite' {
+  run_signed_files_release trezor_suite v26.9.3 .asc \
+    Trezor-Suite-26.9.3-linux-x86_64.AppImage latest-linux.yml \
+    Trezor-Suite-26.9.3-mac-arm64.dmg.blockmap
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'Trezor-Suite-26.9.3-linux-x86_64.AppImage' ]
+}
+
 @test 'wasabi' {
   run_release wasabi v2.8.4 SHA256SUMS.asc SHA256SUMS.asc \
     Wasabi-2.8.4-arm64.AppImage SHA256SUMS Wasabi-2.8.4-arm64.AppImage.asc
