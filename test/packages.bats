@@ -176,6 +176,14 @@ run_signed_files_release() {
   [ "$(published)" = 'chantools-linux-amd64-v0.14.3.tar.gz' ]
 }
 
+@test 'citrine' {
+  ONE_SPACE_MANIFEST=1 run_release citrine v3.2.0 \
+    manifest-v3.2.0.txt manifest-v3.2.0.txt.sig citrine-universal-v3.2.0.apk \
+    citrine-fdroid-universal-v3.2.0.apk
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'citrine-universal-v3.2.0.apk' ]
+}
+
 @test 'core lightning' {
   run_release core_lightning v26.06.9 SHA256SUMS-v26.06.9 \
     SHA256SUMS-v26.06.9.asc clightning-v26.06.9-Ubuntu-24.04-amd64.tar.xz \
