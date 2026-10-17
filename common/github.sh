@@ -30,7 +30,7 @@ verify_from_github() {
 
   echo '----- checking for new releases'
 
-  local new_releases=$(echo "$releases" | jaq -r "map(select(.publishedAt > \"$last_release_published_at\")) | reverse | .[] | \"\(.tagName),\(.publishedAt)\"")
+  local new_releases=$(echo "$releases" | jaq -r --arg since "$last_release_published_at" 'map(select(.publishedAt > $since)) | reverse | .[] | "\(.tagName),\(.publishedAt)"')
   local new_releases_count=$(printf '%s' "$new_releases" | grep -c '^')
 
   echo "new releases found: $new_releases_count"
@@ -131,7 +131,7 @@ verify_from_github() {
         continue
       fi
 
-      local release_asset=$(echo "$release_assets" | jaq -r ".assets[] | select(.name == \"$filename\") | \"\(.url),\(.contentType),\(.size)\"")
+      local release_asset=$(echo "$release_assets" | jaq -r --arg filename "$filename" '.assets[] | select(.name == $filename) | "\(.url),\(.contentType),\(.size)"')
 
       if [ -z "$release_asset" ]; then
         echo 'release asset not found, exiting'
