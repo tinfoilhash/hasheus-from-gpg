@@ -93,7 +93,11 @@ while IFS=',' read -r version published_at <&3; do
 
     curl -fsS --max-time 60 "$release_url/" \
       | hq '{ urls: tr a | [ @(href) ] }' \
-      | jaq -r '.urls[] | select(test("^[A-Za-z0-9][A-Za-z0-9._-]*$"))'
+      | jaq -r '
+        .urls // []
+        | .[]
+        | select(test("^[A-Za-z0-9][A-Za-z0-9._-]*$"))
+      '
   ) || exit 1
 
   # every version folder lists files, so an empty list means the page wasn't

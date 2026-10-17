@@ -144,9 +144,11 @@ state_of() {
     "$XDG_CONFIG_HOME/verify-from-gpg/$package_name" 2> /dev/null
 }
 
+# sorted bytewise, so mixed-case names (like electrum's) sort the same in any
+# locale.
 published() {
   cut -d ' ' -f 2 "$FAKE_NAK_LOG" 2> /dev/null \
-    | sort | tr '\n' ' ' | sed 's/ $//'
+    | LC_ALL=C sort | tr '\n' ' ' | sed 's/ $//'
 }
 
 # whether the published files are exactly the given ones, in sorted order.

@@ -45,6 +45,8 @@ make_version() {
 
   : > "Electrum-$version.tar.gz.f321x.asc"
 
+  # list names bytewise, like apache, so the order doesn't depend on the locale.
+  local LC_ALL=C
   local filenames=(*)
   write_index index.html "${filenames[@]}"
 }
@@ -75,6 +77,7 @@ setup_file() {
   make_site "$unsigned_root"
   cd "$unsigned_root/download.electrum.org/4.8.2" || exit 1
   rm ./*.asc index.html
+  local LC_ALL=C
   local filenames=(*)
   write_index index.html "${filenames[@]}"
 
