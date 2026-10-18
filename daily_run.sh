@@ -55,9 +55,17 @@ update_clone() {
   DAILY_RUN_UPDATED=1 exec "$repo_dir/daily_run.sh"
 }
 
+# keeps an old run while it has drafts waiting for approval.
 delete_old_runs() {
-  find "$log_root" -mindepth 1 -maxdepth 1 -type d -name '20*' \
-    -mtime +"$keep_days" -exec rm -rf {} +
+  local old_run_dir
+  while IFS= read -r old_run_dir <&3; do
+    if [ -z "$(pending_drafts "$old_run_dir/drafts")" ]; then
+      rm -rf "$old_run_dir"
+    fi
+  done 3< <(
+    find "$log_root" -mindepth 1 -maxdepth 1 -type d -name '20*' \
+      -mtime +"$keep_days"
+  )
 }
 
 # imports new packages' keys into the real keyring, then audits the keys in a
@@ -77,7 +85,7 @@ open_daily_issues() {
     --search 'in:title "daily run"' --limit 100 --json number,body \
     | jaq -r '
       .[]
-      | (.body | capture("<!-- run: (?<id>[0-9-]+) -->") | .id) as $id
+      | (try (.body | capture("<!-- run: (?<id>[0-9-]+) -->") | .id)) as $id
       | "\(.number) \($id // "")"
     '
 }
@@ -301,10 +309,25 @@ run_ai() {
     < /dev/null > "$run_dir/ai.log" 2>&1
 }
 
+# undoes anything the ai changed in the clone (commits, edits, new files), so
+# reruns run origin's code, not code the ai could have written.
+restore_clone() {
+  git fetch -q origin \
+    && git checkout -q -f main \
+    && git reset -q --hard origin/main \
+    && git clean -q -fd
+}
+
 # reruns, for real, the packages the ai marked transient (like a relay
 # timeout). names must be packages in this repo.
 rerun_transient() {
   [ -f "$run_dir/transient.txt" ] || return
+
+  if ! restore_clone; then
+    echo 'restoring the clone failed, so nothing was rerun' \
+      > "$run_dir/reruns-skipped.txt"
+    return
+  fi
 
   local package_name
   while IFS= read -r package_name <&3; do
@@ -355,6 +378,27 @@ write_issue_body() {
     } > "$body"
   fi
 
+  # check_keys.sh ends with its counts, so a log without them means the audit
+  # itself failed.
+  if ! grep -q -- '^--- [0-9]* problems, [0-9]* warnings$' \
+    "$run_dir/keys-audit.log"; then
+    {
+      echo
+      echo '### key audit failed'
+      echo
+      echo "the audit didn't finish. see \`keys-audit.log\` in the run's logs."
+    } >> "$body"
+  fi
+
+  write_drafts_section >> "$body"
+
+  if [ -f "$run_dir/reruns-skipped.txt" ]; then
+    {
+      echo
+      cat "$run_dir/reruns-skipped.txt"
+    } >> "$body"
+  fi
+
   if [ -f "$run_dir/reruns/status.txt" ]; then
     {
       echo
@@ -382,6 +426,39 @@ write_issue_body() {
     echo
     echo "<!-- run: $run_id -->"
   } >> "$body"
+}
+
+# lists this run's drafts from their json, the text that's posted on approval,
+# rather than the ai's description of them.
+write_drafts_section() {
+  local drafts
+  drafts=$(pending_drafts "$run_dir/drafts")
+  [ -n "$drafts" ] || return
+
+  echo
+  echo '### drafts for approval'
+
+  local n
+  for n in $drafts; do
+    local draft="$run_dir/drafts/$n.json"
+    local target
+    target=$(jaq -r '
+      if .issue then "comment on \(.repo)#\(.issue)"
+      else "new issue on \(.repo): \(.title)" end
+    ' "$draft") || target='unreadable draft'
+
+    echo
+    echo "**$n.** $target"
+    echo
+    echo '<details><summary>body</summary>'
+    echo
+    jaq -r '.body // ""' "$draft"
+    echo
+    echo '</details>'
+  done
+
+  echo
+  echo 'reply `post 1` (or `post all`, `post 1, 3`, `skip 1`) to approve.'
 }
 
 # closes earlier daily run issues that have no drafts waiting for approval.
@@ -418,6 +495,7 @@ open_issue() {
   fi
 
   write_issue_body "$ai_status"
+  restore_clone
 
   local url
   url=$(gh issue create --repo "$github_repo" --title "daily run $run_date" \
@@ -464,7 +542,6 @@ main() {
 
   local ai_status=0
   run_ai || ai_status=$?
-  git checkout -q -f main
 
   rerun_transient
   open_issue "$ai_status"

@@ -12,7 +12,8 @@ git_quiet() {
     "$@" -q
 }
 
-# a package stub that records whether it ran with the nsec.
+# a package stub that records whether it ran with the nsec, and exits with
+# $STUB_RERUN_STATUS.
 write_stub_package() {
   local package_name="$1"
 
@@ -20,13 +21,15 @@ write_stub_package() {
   cat > "packages/$package_name/verify.sh" << EOF
 #!/usr/bin/env bash
 echo "$package_name NSEC=\${NSEC:-unset}" >> "\$FAKE_RERUN_LOG"
+exit "\${STUB_RERUN_STATUS:-0}"
 EOF
   chmod +x "packages/$package_name/verify.sh"
 }
 
 # writes the scratch repo: the real daily_run.sh and daily_run.md, a
 # verify_all.sh stub that logs each package in $STUB_STATUSES ("<name>
-# <status>" per line), and a check_keys.sh stub with one warning.
+# <status>" per line), and a check_keys.sh stub with one warning (that stops
+# before its counts with $STUB_AUDIT_FAILS set).
 write_scratch_repo() {
   local work_dir="$1"
 
@@ -48,6 +51,8 @@ EOF
   cat > check_keys.sh << 'EOF'
 #!/usr/bin/env bash
 echo '  warning: a stub warning'
+[ -n "${STUB_AUDIT_FAILS:-}" ] && exit 1
+echo '--- 0 problems, 1 warnings'
 EOF
   chmod +x verify_all.sh check_keys.sh
 
@@ -111,6 +116,20 @@ last_run_dir() {
   [ ! -f "$FAKE_AI_LOG" ]
 }
 
+@test 'takes over the lock from a run that was killed' {
+  mkdir -p "$DAILY_RUN_LOG_DIR/.lock"
+  sleep 0 &
+  local dead_pid=$!
+  wait "$dead_pid"
+  echo "$dead_pid" > "$DAILY_RUN_LOG_DIR/.lock/pid"
+
+  run_daily
+
+  [ "$status" -eq 0 ]
+  [ -f "$FAKE_AI_LOG" ]
+  [ ! -d "$DAILY_RUN_LOG_DIR/.lock" ]
+}
+
 @test 'exits while another run holds the lock' {
   mkdir -p "$DAILY_RUN_LOG_DIR/.lock"
   echo "$$" > "$DAILY_RUN_LOG_DIR/.lock/pid"
@@ -143,6 +162,14 @@ last_run_dir() {
   grep -q '^env: NSEC=unset DRY_RUN=1 NPUB=npub-for-' "$FAKE_AI_LOG"
 }
 
+@test 'runs claude by default without the nsec, as a dry run' {
+  run_daily
+
+  [ "$status" -eq 0 ]
+  grep -q '^claude -p .* --permission-mode dontAsk ' "$FAKE_AI_LOG"
+  grep -q '^env: NSEC=unset DRY_RUN=1 NPUB=npub-for-' "$FAKE_AI_LOG"
+}
+
 @test 'opens a daily run issue from the summary as the configured user' {
   run_daily
 
@@ -161,6 +188,57 @@ last_run_dir() {
   [ "$status" -eq 0 ]
   [ "$(cat "$FAKE_RERUN_LOG")" = 'flaky NSEC=nsec-fake' ]
   grep -q '^- flaky: exit 0$' "$FAKE_GH_ROOT/created-100.md"
+}
+
+@test 'reruns only origin code, undoing what the ai changed' {
+  STUB_STATUSES=$'good 0\nflaky 1' FAKE_AI_TRANSIENT=$'flaky\nplanted' \
+    FAKE_AI_TAMPER=1 run_daily
+
+  [ "$status" -eq 0 ]
+  [ "$(cat "$FAKE_RERUN_LOG")" = 'flaky NSEC=nsec-fake' ]
+  [ ! -e "$clone_dir/packages/planted" ]
+  [ "$(git -C "$clone_dir" rev-parse HEAD)" = \
+    "$(git -C "$origin_dir" rev-parse main)" ]
+}
+
+@test 'opens an issue on a quiet day when a rerun fails' {
+  STUB_STATUSES=$'good 0\nflaky 1' FAKE_AI_TRANSIENT=flaky \
+    FAKE_AI_ACTION=quiet STUB_RERUN_STATUS=1 run_daily
+
+  [ "$status" -eq 0 ]
+  grep -q '^- flaky: exit 1$' "$FAKE_GH_ROOT/created-100.md"
+}
+
+@test 'reports a key audit that did not finish' {
+  STUB_AUDIT_FAILS=1 run_daily
+
+  [ "$status" -eq 0 ]
+  grep -q '^### key audit failed$' "$FAKE_GH_ROOT/created-100.md"
+}
+
+@test 'lists drafts from their json, which is what gets posted' {
+  FAKE_AI_DRAFT='{"repo": "up/one", "title": "first", "body": "the body"}' \
+    run_daily
+
+  [ "$status" -eq 0 ]
+  grep -q '^\*\*1\.\*\* new issue on up/one: first$' \
+    "$FAKE_GH_ROOT/created-100.md"
+  grep -q '^the body$' "$FAKE_GH_ROOT/created-100.md"
+}
+
+@test 'deletes old runs, but not ones with drafts waiting for approval' {
+  local old_dir="$DAILY_RUN_LOG_DIR/2025-01-01-090000"
+  local pending_dir="$DAILY_RUN_LOG_DIR/2025-01-02-090000"
+  mkdir -p "$old_dir/drafts" "$pending_dir/drafts"
+  echo '{"repo": "a/b", "title": "t", "body": "b"}' \
+    > "$pending_dir/drafts/1.json"
+  touch -t 202501010900 "$old_dir" "$pending_dir"
+
+  run_daily
+
+  [ "$status" -eq 0 ]
+  [ ! -d "$old_dir" ]
+  [ -d "$pending_dir" ]
 }
 
 @test 'opens no issue on a quiet day, and closes finished daily issues' {

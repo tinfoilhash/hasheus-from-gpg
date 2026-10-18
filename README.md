@@ -77,7 +77,11 @@ git clone https://github.com/tinfoilhash/verify-from-gpg.git ~/Library/Applicati
 cd ~/Library/Application\ Support/verify-from-gpg/repo && git config verify-from-gpg.dailyRun true && git config credential.helper '' && git config --add credential.helper '!gh auth git-credential'
 ```
 
-then schedule it with launchd, for 9:00 each day (or when the mac wakes):
+then schedule it with launchd, for 9:00 each day (or when the mac wakes). launchd writes the run's output to its log folder, which has to exist first:
+
+```bash
+mkdir -p ~/Library/Logs/verify-from-gpg
+```
 
 ```bash
 sed "s|HOME_DIR|$HOME|g" launchd/com.tinfoilhash.verify-from-gpg.daily.plist > ~/Library/LaunchAgents/com.tinfoilhash.verify-from-gpg.daily.plist
@@ -87,7 +91,7 @@ sed "s|HOME_DIR|$HOME|g" launchd/com.tinfoilhash.verify-from-gpg.daily.plist > ~
 launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.tinfoilhash.verify-from-gpg.daily.plist
 ```
 
-it runs in a login shell, so `NSEC` has to be set in `~/.zshenv` or `~/.zprofile`. `gh` has to be logged in as tinfoilhash, and the ai's cli logged in. to run it now:
+it runs in a login shell, which reads `~/.zshenv` and `~/.zprofile` but not `~/.zshrc`, so `NSEC` and the `PATH` to the tools (homebrew's, and the ai's cli) have to be set in one of the first two. `gh` has to be logged in as tinfoilhash, and the ai's cli logged in. to run it now:
 
 ```bash
 launchctl kickstart "gui/$(id -u)/com.tinfoilhash.verify-from-gpg.daily"
