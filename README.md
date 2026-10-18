@@ -63,6 +63,46 @@ a dry run does everything except publish events and record the last release, so 
 DRY_RUN=1 NPUB={{npub...}} ./verify_all.sh
 ```
 
+### daily run
+
+`daily_run.sh` runs every package for real each day on this mac, then has an ai triage the results. it opens a "daily run" issue in this repo with the summary, opens prs for bugs in this repo, and drafts issues for upstream maintainers, which it posts once you approve them on the daily run issue. the ai runs without your nsec, so it can't publish. [daily_run.md](daily_run.md) is its instructions.
+
+it runs in its own clone, since each run resets the clone to `main`:
+
+```bash
+git clone https://github.com/tinfoilhash/verify-from-gpg.git ~/Library/Application\ Support/verify-from-gpg/repo
+```
+
+```bash
+cd ~/Library/Application\ Support/verify-from-gpg/repo && git config verify-from-gpg.dailyRun true && git config credential.helper '' && git config --add credential.helper '!gh auth git-credential'
+```
+
+then schedule it with launchd, for 9:00 each day (or when the mac wakes):
+
+```bash
+sed "s|HOME_DIR|$HOME|g" launchd/com.tinfoilhash.verify-from-gpg.daily.plist > ~/Library/LaunchAgents/com.tinfoilhash.verify-from-gpg.daily.plist
+```
+
+```bash
+launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.tinfoilhash.verify-from-gpg.daily.plist
+```
+
+it runs in a login shell, so `NSEC` has to be set in `~/.zshenv` or `~/.zprofile`. `gh` has to be logged in as tinfoilhash, and the ai's cli logged in. to run it now:
+
+```bash
+launchctl kickstart "gui/$(id -u)/com.tinfoilhash.verify-from-gpg.daily"
+```
+
+it's configured with env vars, set in `~/.zshenv`:
+
+- `AI_HARNESS`: `claude` (the default), `codex`, or `opencode`.
+- `AI_MODEL`: the model, in the harness's format (default: the harness's own).
+- `AI_TIMEOUT_MINUTES`: how long the ai step can run (default: 60).
+- `AI_MAX_BUDGET_USD`: a spending cap, for claude only.
+- `DAILY_RUN_LOG_DIR`: where each run's logs go (default: `~/Library/Logs/verify-from-gpg`), kept for `DAILY_RUN_KEEP_DAYS` (default: 30).
+
+to approve drafts, comment `post 1` (or `post all`, `post 1, 3`, `skip 1`) on the daily run issue. the next run posts them.
+
 ## development
 
 ### tests
@@ -76,10 +116,6 @@ brew install actionlint bats-core shellcheck shfmt
 ```bash
 bats test
 ```
-
-### monitoring
-
-the [monitor](.github/workflows/monitor.yml) workflow runs `./check_keys.sh --import` and a dry run of every package each day, to catch upstream changes like a new page layout, a new signer, or an expired or removed key. it fails when the key check finds a problem or a release isn't signed by any listed key, and its summary lists the warnings and any files not published yet.
 
 ### linting & formatting
 

@@ -14,7 +14,8 @@ each package script checks a project's new releases: it downloads the release's 
 - `verify_all.sh`: runs every package script.
 - `check_keys.sh`: audits the listed keys, and imports them with `--import`.
 - `test/`: the [bats](https://github.com/bats-core/bats-core) suite, with fake `gh`, `nak`, and `curl` in `test/fakes`.
-- `.github/workflows/`: `test.yml` (lint and tests on macos and ubuntu) and `monitor.yml` (a daily key audit and dry run).
+- `.github/workflows/test.yml`: lint and tests on macos and ubuntu.
+- `daily_run.sh` and `daily_run.md`: the daily run on a mac, and the instructions for its ai step.
 
 ## running scripts
 

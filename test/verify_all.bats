@@ -65,3 +65,16 @@ EOF
   [ "$status" -eq 1 ]
   [ "$output" = 'no packages found, exiting' ]
 }
+
+@test 'writes each package log and status to LOG_DIR' {
+  write_package a 0
+  write_package b 1
+
+  LOG_DIR="$BATS_TEST_TMPDIR/logs" run "$repo_dir/verify_all.sh"
+
+  [ "$status" -eq 1 ]
+  [ -z "$output" ]
+  [ "$(cat "$BATS_TEST_TMPDIR/logs/a.log")" = 'ran a' ]
+  [ "$(cat "$BATS_TEST_TMPDIR/logs/b.log")" = 'ran b' ]
+  [ "$(tr '\n' ' ' < "$BATS_TEST_TMPDIR/logs/status.txt")" = 'a 0 b 1 ' ]
+}

@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+# stands in for an ai harness's cli (claude, codex, and opencode call this). it
+# records how it was run in $FAKE_AI_LOG, then acts on the run directory named
+# in its prompt: $FAKE_AI_ACTION is `summary` (write summary.md), `quiet`, or
+# `fail`, $FAKE_AI_TRANSIENT is written to transient.txt, and $FAKE_AI_DRAFT
+# (a json draft) to drafts/1.json.
+
+harness="$1"
+shift
+
+{
+  echo "$harness $*"
+  echo "env: NSEC=${NSEC:-unset} DRY_RUN=${DRY_RUN:-unset} NPUB=${NPUB:-unset}"
+} >> "$FAKE_AI_LOG"
+
+run_dir=$(printf '%s\n' "$@" | sed -n 's/.*for the daily run in \(.*\)\.$/\1/p')
+
+if [ -n "${FAKE_AI_TRANSIENT:-}" ]; then
+  printf '%s\n' "$FAKE_AI_TRANSIENT" > "$run_dir/transient.txt"
+fi
+
+if [ -n "${FAKE_AI_DRAFT:-}" ]; then
+  echo "$FAKE_AI_DRAFT" > "$run_dir/drafts/1.json"
+fi
+
+case "${FAKE_AI_ACTION:-summary}" in
+  summary) echo 'fake summary' > "$run_dir/summary.md" ;;
+  quiet) : > "$run_dir/quiet" ;;
+  fail) exit 3 ;;
+esac

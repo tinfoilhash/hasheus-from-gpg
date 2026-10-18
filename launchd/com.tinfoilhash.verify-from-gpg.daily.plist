@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- runs daily_run.sh at 9:00 each day, or when the mac wakes if it was asleep
+then. a login shell, so it gets NSEC and PATH from your zsh startup files.
+HOME_DIR is replaced with your home directory when it's installed (see the
+readme). -->
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.tinfoilhash.verify-from-gpg.daily</string>
+    <key>ProgramArguments</key>
+    <array>
+      <string>/bin/zsh</string>
+      <string>-l</string>
+      <string>-c</string>
+      <string>'HOME_DIR/Library/Application Support/verify-from-gpg/repo/daily_run.sh'</string>
+    </array>
+    <key>StartCalendarInterval</key>
+    <dict>
+      <key>Hour</key>
+      <integer>9</integer>
+      <key>Minute</key>
+      <integer>0</integer>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>HOME_DIR/Library/Logs/verify-from-gpg/launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>HOME_DIR/Library/Logs/verify-from-gpg/launchd.log</string>
+  </dict>
+</plist>
