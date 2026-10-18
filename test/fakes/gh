@@ -6,10 +6,8 @@
 # has a sha256 digest, unless $FAKE_GH_NO_DIGESTS is set, like older releases.
 # `api <endpoint>` serves $FAKE_GH_ROOT/api/<endpoint without its query>.json.
 #
-# for issues, `issue list` serves $FAKE_GH_ROOT/issues.json and `issue view <n>`
-# serves $FAKE_GH_ROOT/issue-<n>.json. `issue create`, `comment`, and `close`
-# are recorded in $FAKE_GH_LOG with the GH_TOKEN they ran with, and a created
-# issue's body is saved as $FAKE_GH_ROOT/created-<n>.md.
+# `issue create` is recorded in $FAKE_GH_LOG with the GH_TOKEN it ran with, and
+# the issue's body is saved as $FAKE_GH_ROOT/created-<n>.md.
 
 case "$1 $2" in
   'release list')
@@ -38,12 +36,6 @@ case "$1 $2" in
     # `gh auth token --user <user>`.
     echo "token-for-$4"
     ;;
-  'issue list')
-    cat "$FAKE_GH_ROOT/issues.json" 2> /dev/null || echo '[]'
-    ;;
-  'issue view')
-    cat "$FAKE_GH_ROOT/issue-$3.json" 2> /dev/null || echo '{"comments":[]}'
-    ;;
   'issue create')
     shift 2
     while [ $# -gt 0 ]; do
@@ -60,23 +52,6 @@ case "$1 $2" in
     cp "$body_file" "$FAKE_GH_ROOT/created-$number.md"
     echo "create $repo $title ($GH_TOKEN)" >> "$FAKE_GH_LOG"
     echo "https://github.com/$repo/issues/$number"
-    ;;
-  'issue comment' | 'issue close')
-    action="$2"
-    number="$3"
-    shift 3
-    text=''
-    while [ $# -gt 0 ]; do
-      case "$1" in
-        --repo) repo="$2" ;;
-        --body | --comment) text="$2" ;;
-        --body-file) text=$(< "$2") ;;
-      esac
-      shift
-    done
-
-    echo "$action $repo#$number $text ($GH_TOKEN)" >> "$FAKE_GH_LOG"
-    echo "https://github.com/$repo/issues/$number#issuecomment-1"
     ;;
   api\ *)
     cat "$FAKE_GH_ROOT/api/${2%%\?*}.json"

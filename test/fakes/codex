@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-
-exec "${BASH_SOURCE%/*}/fake_ai" codex "$@"

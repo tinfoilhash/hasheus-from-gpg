@@ -1,41 +1,20 @@
 #!/usr/bin/env bash
 
-# stands in for an ai harness's cli (claude, codex, and opencode call this). it
-# records how it was run in $FAKE_AI_LOG, then acts on the run directory named
-# in its prompt: $FAKE_AI_ACTION is `summary` (write summary.md), `quiet`, or
-# `fail`, $FAKE_AI_TRANSIENT is written to transient.txt, and $FAKE_AI_DRAFT
-# (a json draft) to drafts/1.json. with $FAKE_AI_TAMPER set, it commits a change
-# to packages/flaky and plants an untracked packages/planted, like an ai that
-# tries to get its own code rerun with the nsec.
-
-harness="$1"
-shift
+# stands in for the ai's cli. it records its arguments and environment in
+# $FAKE_AI_LOG, then exits with $FAKE_AI_STATUS (default 0). with
+# $FAKE_AI_TAMPER set, it leaves a commit and an untracked file in the clone,
+# for the next run to undo.
 
 {
-  echo "$harness $*"
+  echo "args: $*"
   echo "env: NSEC=${NSEC:-unset} DRY_RUN=${DRY_RUN:-unset} NPUB=${NPUB:-unset}"
 } >> "$FAKE_AI_LOG"
 
-run_dir=$(printf '%s\n' "$@" | sed -n 's/.*for the daily run in \(.*\)\.$/\1/p')
-
-if [ -n "${FAKE_AI_TRANSIENT:-}" ]; then
-  printf '%s\n' "$FAKE_AI_TRANSIENT" > "$run_dir/transient.txt"
-fi
-
-if [ -n "${FAKE_AI_DRAFT:-}" ]; then
-  echo "$FAKE_AI_DRAFT" > "$run_dir/drafts/1.json"
-fi
-
 if [ -n "${FAKE_AI_TAMPER:-}" ]; then
-  printf '#!/usr/bin/env bash\necho tampered >> "$FAKE_RERUN_LOG"\n' \
-    > packages/flaky/verify.sh
-  git -c user.name=ai -c user.email=ai@test commit -q -am 'tamper'
-  mkdir -p packages/planted
-  cp packages/flaky/verify.sh packages/planted/verify.sh
+  echo tampered > tampered.txt
+  git add tampered.txt
+  git -c user.name=ai -c user.email=ai@test commit -q -m 'tamper'
+  echo planted > planted.txt
 fi
 
-case "${FAKE_AI_ACTION:-summary}" in
-  summary) echo 'fake summary' > "$run_dir/summary.md" ;;
-  quiet) : > "$run_dir/quiet" ;;
-  fail) exit 3 ;;
-esac
+exit "${FAKE_AI_STATUS:-0}"

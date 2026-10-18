@@ -65,7 +65,7 @@ DRY_RUN=1 NPUB={{npub...}} ./verify_all.sh
 
 ### daily run
 
-`daily_run.sh` runs every package for real each day on this mac, then has an ai triage the results. it opens a "daily run" issue in this repo with the summary, opens prs for bugs in this repo, and drafts issues for upstream maintainers, which it posts once you approve them on the daily run issue. the ai runs without `NSEC` in its environment and with `DRY_RUN` set, so the packages it runs are dry runs. it still runs as you, so this guards against mistakes, not against an ai set on publishing or pushing (it could read `~/.zshenv`, or run code it writes). [daily_run.md](daily_run.md) is its instructions.
+`daily_run.sh` runs every package for real each day on this mac, then has an ai triage the results by following [daily_run.md](daily_run.md): it opens issues for upstream maintainers, opens prs for bugs in this repo (never merging them), and opens a "daily run" issue in this repo with the day's summary. if the ai step fails, the script opens a plain summary instead. the ai runs without `NSEC` in its environment and with `DRY_RUN` set, so the packages it runs are dry runs. it still runs as you, so this guards against mistakes, not against an ai set on publishing or pushing (it could read `~/.zshenv`, or run code it writes).
 
 it runs in its own clone, since each run resets the clone to `main`:
 
@@ -99,13 +99,9 @@ launchctl kickstart "gui/$(id -u)/com.tinfoilhash.verify-from-gpg.daily"
 
 it's configured with env vars, set in `~/.zshenv`:
 
-- `AI_HARNESS`: `claude` (the default), `codex`, or `opencode`.
-- `AI_MODEL`: the model, in the harness's format (default: the harness's own).
+- `AI_COMMAND`: the ai's cli and its flags, which the prompt is appended to (default: `claude -p --dangerously-skip-permissions`). for example, `opencode run --auto -m <provider/model>` or `codex exec --full-auto`.
 - `AI_TIMEOUT_MINUTES`: how long the ai step can run (default: 60).
-- `AI_MAX_BUDGET_USD`: a spending cap, for claude only.
 - `DAILY_RUN_LOG_DIR`: where each run's logs go (default: `~/Library/Logs/verify-from-gpg`), kept for `DAILY_RUN_KEEP_DAYS` (default: 30).
-
-to approve drafts, comment `post 1` (or `post all`, `post 1, 3`, `skip 1`) on the daily run issue. the next run posts them.
 
 ## development
 

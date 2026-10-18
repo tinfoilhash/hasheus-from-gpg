@@ -1,8 +1,8 @@
 #!/usr/bin/env bats
 
 # runs daily_run.sh in a clone of a scratch repo that has the real daily run
-# files and stub packages, verify_all.sh, and check_keys.sh, so these test the
-# run's own steps. the fakes stand in for gh, nak, and the ai's cli.
+# files and stub verify_all.sh and check_keys.sh, so these test the run's own
+# steps. the fakes stand in for gh, nak, and the ai's cli.
 
 # shellcheck source=test/test_helper.bash
 source "$BATS_TEST_DIRNAME/test_helper.bash"
@@ -10,20 +10,6 @@ source "$BATS_TEST_DIRNAME/test_helper.bash"
 git_quiet() {
   git -c user.name=test -c user.email=test@test -c init.defaultBranch=main \
     "$@" -q
-}
-
-# a package stub that records whether it ran with the nsec, and exits with
-# $STUB_RERUN_STATUS.
-write_stub_package() {
-  local package_name="$1"
-
-  mkdir -p "packages/$package_name"
-  cat > "packages/$package_name/verify.sh" << EOF
-#!/usr/bin/env bash
-echo "$package_name NSEC=\${NSEC:-unset}" >> "\$FAKE_RERUN_LOG"
-exit "\${STUB_RERUN_STATUS:-0}"
-EOF
-  chmod +x "packages/$package_name/verify.sh"
 }
 
 # writes the scratch repo: the real daily_run.sh and daily_run.md, a
@@ -56,9 +42,6 @@ echo '--- 0 problems, 1 warnings'
 EOF
   chmod +x verify_all.sh check_keys.sh
 
-  write_stub_package good
-  write_stub_package flaky
-
   git_quiet init
   git add .
   git_quiet commit -m 'scratch repo'
@@ -80,7 +63,7 @@ setup() {
   export FAKE_GH_ROOT="$BATS_TEST_TMPDIR/gh"
   export FAKE_GH_LOG="$BATS_TEST_TMPDIR/gh.log"
   export FAKE_AI_LOG="$BATS_TEST_TMPDIR/ai.log"
-  export FAKE_RERUN_LOG="$BATS_TEST_TMPDIR/reruns.log"
+  export AI_COMMAND='fake_ai'
   export STUB_STATUSES='good 0'
   mkdir -p "$FAKE_GH_ROOT"
   : > "$FAKE_GH_LOG"
@@ -141,185 +124,76 @@ last_run_dir() {
   [ ! -f "$FAKE_AI_LOG" ]
 }
 
-@test 'resets the clone to origin main before running' {
-  echo 'local change' > "$clone_dir/stray.txt"
-  git -C "$clone_dir" add stray.txt
-  git_quiet -C "$clone_dir" commit -m 'stray'
+@test 'resets the clone to origin main, undoing what the last ai left' {
+  FAKE_AI_TAMPER=1 run_daily
+  [ -f "$clone_dir/planted.txt" ]
 
   run_daily
 
   [ "$status" -eq 0 ]
-  [ ! -f "$clone_dir/stray.txt" ]
+  [ ! -e "$clone_dir/tampered.txt" ]
+  [ ! -e "$clone_dir/planted.txt" ]
   [ "$(git -C "$clone_dir" rev-parse HEAD)" = \
     "$(git -C "$origin_dir" rev-parse main)" ]
 }
 
-@test 'runs the chosen harness without the nsec, as a dry run' {
-  AI_HARNESS=codex AI_MODEL=gpt-test run_daily
+@test 'runs AI_COMMAND with the prompt, without the nsec, as a dry run' {
+  AI_COMMAND='fake_ai --model test-model' run_daily
 
   [ "$status" -eq 0 ]
-  grep -q '^codex exec .*--model gpt-test ' "$FAKE_AI_LOG"
+  grep -q "^args: --model test-model follow daily_run.md .* \"daily run \
+$(date +%Y-%m-%d)\" in tinfoilhash/verify-from-gpg.$" "$FAKE_AI_LOG"
   grep -q '^env: NSEC=unset DRY_RUN=1 NPUB=npub-for-' "$FAKE_AI_LOG"
 }
 
-@test 'runs claude by default without the nsec, as a dry run' {
+@test 'runs claude by default' {
+  unset AI_COMMAND
+  mkdir -p "$BATS_TEST_TMPDIR/bin"
+  printf '#!/usr/bin/env bash\nexec fake_ai claude "$@"\n' \
+    > "$BATS_TEST_TMPDIR/bin/claude"
+  chmod +x "$BATS_TEST_TMPDIR/bin/claude"
+
+  PATH="$BATS_TEST_TMPDIR/bin:$PATH" run_daily
+
+  [ "$status" -eq 0 ]
+  grep -q '^args: claude -p --dangerously-skip-permissions follow ' \
+    "$FAKE_AI_LOG"
+}
+
+@test 'leaves the daily issue to the ai when it succeeds' {
   run_daily
 
   [ "$status" -eq 0 ]
-  grep -q '^claude -p .* --permission-mode dontAsk ' "$FAKE_AI_LOG"
-  grep -q '^env: NSEC=unset DRY_RUN=1 NPUB=npub-for-' "$FAKE_AI_LOG"
+  [ "$(grep -c '^create ' "$FAKE_GH_LOG")" -eq 0 ]
 }
 
-@test 'opens a daily run issue from the summary as the configured user' {
-  run_daily
+@test 'opens a plain summary as the configured user when the ai fails' {
+  STUB_STATUSES=$'good 0\nflaky 1' FAKE_AI_STATUS=3 run_daily
 
   [ "$status" -eq 0 ]
   grep -q "^create tinfoilhash/verify-from-gpg daily run $(date +%Y-%m-%d) \
 (token-for-tinfoilhash)$" "$FAKE_GH_LOG"
-  grep -q '^fake summary$' "$FAKE_GH_ROOT/created-100.md"
-  grep -q "^<!-- run: $(basename "$(last_run_dir)") -->$" \
-    "$FAKE_GH_ROOT/created-100.md"
-}
-
-@test 'reruns only transient packages in this repo, with the nsec' {
-  STUB_STATUSES=$'good 0\nflaky 1' \
-    FAKE_AI_TRANSIENT=$'flaky\n../flaky\nmissing' run_daily
-
-  [ "$status" -eq 0 ]
-  [ "$(cat "$FAKE_RERUN_LOG")" = 'flaky NSEC=nsec-fake' ]
-  grep -q '^- flaky: exit 0$' "$FAKE_GH_ROOT/created-100.md"
-}
-
-@test 'reruns only origin code, undoing what the ai changed' {
-  STUB_STATUSES=$'good 0\nflaky 1' FAKE_AI_TRANSIENT=$'flaky\nplanted' \
-    FAKE_AI_TAMPER=1 run_daily
-
-  [ "$status" -eq 0 ]
-  [ "$(cat "$FAKE_RERUN_LOG")" = 'flaky NSEC=nsec-fake' ]
-  [ ! -e "$clone_dir/packages/planted" ]
-  [ "$(git -C "$clone_dir" rev-parse HEAD)" = \
-    "$(git -C "$origin_dir" rev-parse main)" ]
-}
-
-@test 'opens an issue on a quiet day when a rerun fails' {
-  STUB_STATUSES=$'good 0\nflaky 1' FAKE_AI_TRANSIENT=flaky \
-    FAKE_AI_ACTION=quiet STUB_RERUN_STATUS=1 run_daily
-
-  [ "$status" -eq 0 ]
-  grep -q '^- flaky: exit 1$' "$FAKE_GH_ROOT/created-100.md"
-}
-
-@test 'reports a key audit that did not finish' {
-  STUB_AUDIT_FAILS=1 run_daily
-
-  [ "$status" -eq 0 ]
-  grep -q '^### key audit failed$' "$FAKE_GH_ROOT/created-100.md"
-}
-
-@test 'lists drafts from their json, which is what gets posted' {
-  FAKE_AI_DRAFT='{"repo": "up/one", "title": "first", "body": "the body"}' \
-    run_daily
-
-  [ "$status" -eq 0 ]
-  grep -q '^\*\*1\.\*\* new issue on up/one: first$' \
-    "$FAKE_GH_ROOT/created-100.md"
-  grep -q '^the body$' "$FAKE_GH_ROOT/created-100.md"
-}
-
-@test 'deletes old runs, but not ones with drafts waiting for approval' {
-  local old_dir="$DAILY_RUN_LOG_DIR/2025-01-01-090000"
-  local pending_dir="$DAILY_RUN_LOG_DIR/2025-01-02-090000"
-  mkdir -p "$old_dir/drafts" "$pending_dir/drafts"
-  echo '{"repo": "a/b", "title": "t", "body": "b"}' \
-    > "$pending_dir/drafts/1.json"
-  touch -t 202501010900 "$old_dir" "$pending_dir"
-
-  run_daily
-
-  [ "$status" -eq 0 ]
-  [ ! -d "$old_dir" ]
-  [ -d "$pending_dir" ]
-}
-
-@test 'opens no issue on a quiet day, and closes finished daily issues' {
-  echo '[{"number": 7, "body": "<!-- run: 2026-01-01-090000 -->"}]' \
-    > "$FAKE_GH_ROOT/issues.json"
-
-  FAKE_AI_ACTION=quiet run_daily
-
-  [ "$status" -eq 0 ]
-  [ "$(grep -c '^create ' "$FAKE_GH_LOG")" -eq 0 ]
-  grep -q '^close tinfoilhash/verify-from-gpg#7 ' "$FAKE_GH_LOG"
-}
-
-@test 'keeps a daily issue open while it has drafts waiting for approval' {
-  mkdir -p "$DAILY_RUN_LOG_DIR/2026-01-01-090000/drafts"
-  echo '{"repo": "a/b", "title": "t", "body": "b"}' \
-    > "$DAILY_RUN_LOG_DIR/2026-01-01-090000/drafts/1.json"
-  echo '[{"number": 7, "body": "<!-- run: 2026-01-01-090000 -->"}]' \
-    > "$FAKE_GH_ROOT/issues.json"
-
-  run_daily
-
-  [ "$status" -eq 0 ]
-  [ "$(grep -c '^close ' "$FAKE_GH_LOG")" -eq 0 ]
-  grep -q "draft 1: $DAILY_RUN_LOG_DIR/2026-01-01-090000/drafts/1.json" \
-    "$(last_run_dir)/pending-drafts.txt"
-}
-
-@test 'opens a plain summary when the ai step fails' {
-  STUB_STATUSES=$'good 0\nflaky 1' FAKE_AI_ACTION=fail run_daily
-
-  [ "$status" -eq 0 ]
   grep -q '^the ai step failed (exit 3)' "$FAKE_GH_ROOT/created-100.md"
   grep -q '^- \*\*flaky\*\* (exit 1): relay query failed, exiting$' \
     "$FAKE_GH_ROOT/created-100.md"
   grep -q '^  warning: a stub warning$' "$FAKE_GH_ROOT/created-100.md"
 }
 
-@test 'posts drafts approved by the configured user, and only those' {
-  local drafts_dir="$DAILY_RUN_LOG_DIR/2026-01-01-090000/drafts"
-  mkdir -p "$drafts_dir"
-  echo '{"repo": "up/one", "title": "first", "body": "one"}' \
-    > "$drafts_dir/1.json"
-  echo '{"repo": "up/two", "issue": 5, "body": "two"}' > "$drafts_dir/2.json"
-  echo '{"repo": "up/three", "title": "third", "body": "three"}' \
-    > "$drafts_dir/3.json"
-  echo '[{"number": 7, "body": "<!-- run: 2026-01-01-090000 -->"}]' \
-    > "$FAKE_GH_ROOT/issues.json"
-  cat > "$FAKE_GH_ROOT/issue-7.json" << 'EOF'
-{"comments": [
-  {"author": {"login": "stranger"}, "body": "post all"},
-  {"author": {"login": "tinfoilhash"}, "body": "post 1, 2"},
-  {"author": {"login": "tinfoilhash"}, "body": "please post 3"}
-]}
-EOF
-
-  run_daily
+@test 'says so in the plain summary when the key audit did not finish' {
+  STUB_AUDIT_FAILS=1 FAKE_AI_STATUS=3 run_daily
 
   [ "$status" -eq 0 ]
-  grep -q '^create up/one first (token-for-tinfoilhash)$' "$FAKE_GH_LOG"
-  grep -q '^comment up/two#5 two (token-for-tinfoilhash)$' "$FAKE_GH_LOG"
-  [ "$(grep -c 'up/three' "$FAKE_GH_LOG")" -eq 0 ]
-  [ -f "$drafts_dir/1.posted" ] && [ -f "$drafts_dir/2.posted" ]
-  [ ! -f "$drafts_dir/3.posted" ]
+  grep -q "^the key audit didn't finish" "$FAKE_GH_ROOT/created-100.md"
 }
 
-@test 'skips drafts the configured user skips' {
-  local drafts_dir="$DAILY_RUN_LOG_DIR/2026-01-01-090000/drafts"
-  mkdir -p "$drafts_dir"
-  echo '{"repo": "up/one", "title": "first", "body": "one"}' \
-    > "$drafts_dir/1.json"
-  echo '[{"number": 7, "body": "<!-- run: 2026-01-01-090000 -->"}]' \
-    > "$FAKE_GH_ROOT/issues.json"
-  cat > "$FAKE_GH_ROOT/issue-7.json" << 'EOF'
-{"comments": [{"author": {"login": "tinfoilhash"}, "body": "skip all"}]}
-EOF
+@test 'deletes runs older than DAILY_RUN_KEEP_DAYS' {
+  local old_dir="$DAILY_RUN_LOG_DIR/2025-01-01-090000"
+  mkdir -p "$old_dir"
+  touch -t 202501010900 "$old_dir"
 
   run_daily
 
   [ "$status" -eq 0 ]
-  [ -f "$drafts_dir/1.skipped" ]
-  [ "$(grep -c 'up/one' "$FAKE_GH_LOG")" -eq 0 ]
-  grep -q '^close tinfoilhash/verify-from-gpg#7 ' "$FAKE_GH_LOG"
+  [ ! -d "$old_dir" ]
+  [ -n "$(last_run_dir)" ]
 }
