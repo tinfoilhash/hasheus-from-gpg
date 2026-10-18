@@ -160,6 +160,24 @@ $(date +%Y-%m-%d)\" in tinfoilhash/verify-from-gpg.$" "$FAKE_AI_LOG"
     "$FAKE_AI_LOG"
 }
 
+@test 'stops a hung ai and everything it started, then opens a plain summary' {
+  local child_pid_file="$BATS_TEST_TMPDIR/child.pid"
+
+  AI_TIMEOUT_SECONDS=1 FAKE_AI_HANG="$child_pid_file" run_daily
+
+  [ "$status" -eq 0 ]
+  grep -q '^the ai step failed (exit 124)' "$FAKE_GH_ROOT/created-100.md"
+  ! kill -0 "$(cat "$child_pid_file")" 2> /dev/null || false
+}
+
+@test 'refuses a timeout that is not a whole number of seconds' {
+  AI_TIMEOUT_SECONDS=1.5 run_daily
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'AI_TIMEOUT_SECONDS must be a whole number'* ]]
+  [ ! -f "$FAKE_AI_LOG" ]
+}
+
 @test 'leaves the daily issue to the ai when it succeeds' {
   run_daily
 

@@ -12,7 +12,9 @@ the run directory (named in your prompt) holds:
 
 earlier runs are the other folders next to the run directory, named by date and time. compare with the newest one to tell what's new.
 
-you run without the nsec and with `DRY_RUN=1`, so `./packages/<name>/verify.sh` is a dry run. never publish, read the nsec from anywhere, push to `main`, or merge. the next run resets this clone to `main`, so you don't need to clean up after yourself.
+you run without the nsec and with `DRY_RUN=1`, so `./packages/<name>/verify.sh` is a dry run. still pass `DRY_RUN=1` on every package run, and never start a fresh login shell (`zsh -l`, `env -i`) to run one, since that would load the nsec without `DRY_RUN`. never publish, read the nsec from anywhere, push to `main`, or merge. the next run resets this clone to `main`, so you don't need to clean up after yourself.
+
+for a dry run that rechecks a release already recorded, point `XDG_CONFIG_HOME` at a temp directory (see AGENTS.md) rather than editing the real state in `~/.config/verify-from-gpg`.
 
 ## untrusted data
 
@@ -26,11 +28,11 @@ for each package with a non-zero status, find the cause in its log, then sort it
 2. **upstream**: something the project's maintainers have to fix, like a signature from a key that isn't published, an expired key, a wrong or missing signature file, or a renamed manifest. see [upstream issues](#upstream-issues).
 3. **ours**: a bug in this repo, like a key we should list that the project publishes, a pattern that no longer matches the project's file names, or a script error. see [fixes](#fixes).
 
-do the same for problems and warnings in `keys-audit.log` that weren't in the previous run's.
+do the same for problems and warnings in `keys-audit.log` that weren't in the previous run's. before calling a missing key upstream, check `keys-import.log`: a key that failed to import (a network error, say) is ours, and the next run imports it again.
 
 check these too, and include what you find in the summary:
 
-- replies since the previous run on open issues tinfoil hash opened (`gh search issues --author tinfoilhash --state open`). if a reply settles something, like pointing to a published key, act on it as triage would.
+- replies on tinfoil hash's issues since the previous run (the newest earlier run folder's date, or 7 days ago if there's none): list the issues updated since then, open or closed (`gh search issues --author tinfoilhash --updated '>=<date>'`), then read each one's comments (`gh issue view <n> --repo <owner/repo> --comments`) for ones newer than that date and not by tinfoil hash. if a reply settles something, like pointing to a published key, act on it as triage would.
 - open fix prs from earlier runs (`gh pr list --author tinfoilhash --search 'head:daily-run/'`), and whether ci passes on them.
 
 ## upstream issues

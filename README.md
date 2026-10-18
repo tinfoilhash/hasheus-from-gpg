@@ -100,7 +100,7 @@ launchctl kickstart "gui/$(id -u)/com.tinfoilhash.verify-from-gpg.daily"
 it's configured with env vars, set in `~/.zshenv`:
 
 - `AI_COMMAND`: the ai's cli and its flags, which the prompt is appended to (default: `claude -p --dangerously-skip-permissions`). for example, `opencode run --auto -m <provider/model>` or `codex exec --full-auto`.
-- `AI_TIMEOUT_MINUTES`: how long the ai step can run (default: 60).
+- `AI_TIMEOUT_SECONDS`: how long the ai step can run before it's stopped, along with everything it started (default: 3600).
 - `DAILY_RUN_LOG_DIR`: where each run's logs go (default: `~/Library/Logs/verify-from-gpg`), kept for `DAILY_RUN_KEEP_DAYS` (default: 30).
 
 ## development

@@ -6,7 +6,7 @@
 # it up.
 
 ai_command="${AI_COMMAND:-claude -p --dangerously-skip-permissions}"
-ai_timeout_minutes="${AI_TIMEOUT_MINUTES:-60}"
+ai_timeout_seconds="${AI_TIMEOUT_SECONDS:-3600}"
 github_user="${DAILY_RUN_GITHUB_USER:-tinfoilhash}"
 github_repo="${DAILY_RUN_GITHUB_REPO:-tinfoilhash/verify-from-gpg}"
 log_root="${DAILY_RUN_LOG_DIR:-$HOME/Library/Logs/verify-from-gpg}"
@@ -72,6 +72,25 @@ check_keys() {
   rm -rf "$home"
 }
 
+# runs a command, killing it and everything it started if it's still running
+# after the given seconds (exiting 124, like `timeout`, which macos doesn't
+# have). the command runs in its own process group so the kill reaches the
+# commands an ai's cli runs, too.
+timeout_program='
+  my $seconds = shift;
+  my $pid = fork // die "fork failed: $!\n";
+  if (!$pid) { setpgrp(0, 0); exec @ARGV or die "exec failed: $!\n" }
+  $SIG{ALRM} = sub {
+    kill "TERM", -$pid;
+    sleep 5;
+    kill "KILL", -$pid;
+    exit 124;
+  };
+  alarm $seconds;
+  waitpid $pid, 0;
+  exit($? & 127 ? 128 + ($? & 127) : $? >> 8);
+'
+
 # runs AI_COMMAND (split on spaces) with the prompt appended, without the nsec,
 # and with DRY_RUN and the npub, so the package scripts it runs are dry runs. it
 # runs as this user, so this guards against mistakes, not a determined ai.
@@ -85,11 +104,8 @@ $run_dir, whose issue is \"daily run $run_date\" in $github_repo."
   local npub
   npub=$(nak encode npub "$(nak key public "$NSEC" < /dev/null)" < /dev/null)
 
-  # perl's alarm stops a hung cli, and works on macos and linux, unlike
-  # `timeout`.
-  env -u NSEC DRY_RUN=1 NPUB="$npub" perl -e \
-    'alarm shift; exec @ARGV or die "exec failed: $!\n"' \
-    "$((ai_timeout_minutes * 60))" "${command[@]}" "$prompt" \
+  env -u NSEC DRY_RUN=1 NPUB="$npub" perl -e "$timeout_program" \
+    "$ai_timeout_seconds" "${command[@]}" "$prompt" \
     < /dev/null > "$run_dir/ai.log" 2>&1
 }
 
@@ -144,6 +160,11 @@ main() {
   # launchd runs this in a login shell, so the nsec comes from ~/.zshenv.
   if [ -z "${NSEC:-}" ]; then
     echo '$NSEC not set, exiting'
+    exit 1
+  fi
+
+  if [[ ! "$ai_timeout_seconds" =~ ^[1-9][0-9]*$ ]]; then
+    echo "AI_TIMEOUT_SECONDS must be a whole number of seconds, exiting"
     exit 1
   fi
 

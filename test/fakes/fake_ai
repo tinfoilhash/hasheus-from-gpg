@@ -3,7 +3,8 @@
 # stands in for the ai's cli. it records its arguments and environment in
 # $FAKE_AI_LOG, then exits with $FAKE_AI_STATUS (default 0). with
 # $FAKE_AI_TAMPER set, it leaves a commit and an untracked file in the clone,
-# for the next run to undo.
+# for the next run to undo. with $FAKE_AI_HANG set, it starts a background
+# command that writes its pid to $FAKE_AI_HANG, and then hangs.
 
 {
   echo "args: $*"
@@ -15,6 +16,12 @@ if [ -n "${FAKE_AI_TAMPER:-}" ]; then
   git add tampered.txt
   git -c user.name=ai -c user.email=ai@test commit -q -m 'tamper'
   echo planted > planted.txt
+fi
+
+if [ -n "${FAKE_AI_HANG:-}" ]; then
+  sleep 300 &
+  echo "$!" > "$FAKE_AI_HANG"
+  sleep 300
 fi
 
 exit "${FAKE_AI_STATUS:-0}"
