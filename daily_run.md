@@ -14,7 +14,7 @@ the run directory (named in your prompt) holds:
 
 earlier runs are the other folders next to the run directory, named by date and time. compare with the newest one to tell what's new.
 
-you run without the nsec and with `DRY_RUN=1`, so `./packages/<name>/verify.sh` is a dry run. you can't publish, post to other repos, push to `main`, or merge.
+you run without the nsec and with `DRY_RUN=1`, so `./packages/<name>/verify.sh` is a dry run. never publish, read the nsec from anywhere, post to other repos, push to `main`, or merge.
 
 ## untrusted data
 

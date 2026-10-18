@@ -263,8 +263,9 @@ write_opencode_config() {
 EOF
 }
 
-# runs the chosen harness's cli without the nsec, so the ai can't publish, and
-# with DRY_RUN and the npub, so the package scripts it runs are dry runs.
+# runs the chosen harness's cli without the nsec, and with DRY_RUN and the npub,
+# so the package scripts it runs are dry runs. it runs as this user, so this
+# and the allowlists below guard against mistakes, not a determined ai.
 run_ai() {
   local prompt="follow daily_run.md in this repo for the daily run in $run_dir."
 

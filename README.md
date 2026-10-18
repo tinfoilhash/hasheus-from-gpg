@@ -65,7 +65,7 @@ DRY_RUN=1 NPUB={{npub...}} ./verify_all.sh
 
 ### daily run
 
-`daily_run.sh` runs every package for real each day on this mac, then has an ai triage the results. it opens a "daily run" issue in this repo with the summary, opens prs for bugs in this repo, and drafts issues for upstream maintainers, which it posts once you approve them on the daily run issue. the ai runs without your nsec, so it can't publish. [daily_run.md](daily_run.md) is its instructions.
+`daily_run.sh` runs every package for real each day on this mac, then has an ai triage the results. it opens a "daily run" issue in this repo with the summary, opens prs for bugs in this repo, and drafts issues for upstream maintainers, which it posts once you approve them on the daily run issue. the ai runs without `NSEC` in its environment and with `DRY_RUN` set, so the packages it runs are dry runs. it still runs as you, so this guards against mistakes, not against an ai set on publishing or pushing (it could read `~/.zshenv`, or run code it writes). [daily_run.md](daily_run.md) is its instructions.
 
 it runs in its own clone, since each run resets the clone to `main`:
 
