@@ -1,12 +1,12 @@
 #!/usr/bin/env bats
 
-# runs install_daily_run.sh from a scratch checkout whose origin is a local
+# runs scheduled_run/install.sh from a scratch checkout whose origin is a local
 # repo, with HOME in a temp directory and the fake launchctl.
 
 # shellcheck source=test/test_helper.bash
 source "$BATS_TEST_DIRNAME/test_helper.bash"
 
-label='com.tinfoilhash.verify-from-gpg.daily'
+label='com.tinfoilhash.verify-from-gpg.scheduled-run'
 
 git_quiet() {
   git -c user.name=test -c user.email=test@test -c init.defaultBranch=main \
@@ -15,9 +15,9 @@ git_quiet() {
 
 setup() {
   local work_dir="$BATS_TEST_TMPDIR/work"
-  mkdir -p "$work_dir/launchd"
-  cp "$PROJECT_DIR/install_daily_run.sh" "$work_dir/"
-  cp "$PROJECT_DIR/launchd/$label.plist" "$work_dir/launchd/"
+  mkdir -p "$work_dir/scheduled_run"
+  cp "$PROJECT_DIR/scheduled_run/install.sh" \
+    "$PROJECT_DIR/scheduled_run/launchd.plist" "$work_dir/scheduled_run/"
   git_quiet -C "$work_dir" init
   git -C "$work_dir" add .
   git_quiet -C "$work_dir" commit -m 'scratch repo'
@@ -31,7 +31,8 @@ setup() {
   export SHELL=/bin/bash
   export PATH="$PROJECT_DIR/test/fakes:$PATH"
   export FAKE_LAUNCHCTL_LOG="$BATS_TEST_TMPDIR/launchctl.log"
-  unset DAILY_RUN_CLONE_DIR DAILY_RUN_LOG_DIR NSEC
+  unset SCHEDULED_RUN_CLONE_DIR SCHEDULED_RUN_LOG_DIR SCHEDULED_RUN_HOURS \
+    SCHEDULED_RUN_WEEKDAYS NSEC
   mkdir -p "$HOME"
   echo 'export NSEC=nsec-fake' > "$HOME/.bash_profile"
 
@@ -40,14 +41,14 @@ setup() {
 }
 
 run_install() {
-  run "$checkout_dir/install_daily_run.sh" "$@"
+  run "$checkout_dir/scheduled_run/install.sh" "$@"
 }
 
-@test 'clones origin into a daily run clone' {
+@test 'clones origin into a scheduled run clone' {
   run_install
 
   [ "$status" -eq 0 ]
-  [ "$(git -C "$clone_dir" config verify-from-gpg.dailyRun)" = true ]
+  [ "$(git -C "$clone_dir" config verify-from-gpg.scheduledRun)" = true ]
   local helpers
   helpers=$(git -C "$clone_dir" config --local --get-all credential.helper)
   [ "$(tr '\n' ' ' <<< "$helpers")" = ' !gh auth git-credential ' ]
@@ -61,22 +62,75 @@ run_install() {
   [ "$status" -eq 0 ]
   plutil -lint "$plist" > /dev/null 2>&1 || ! command -v plutil > /dev/null
   grep -q '<string>/bin/bash</string>' "$plist"
-  grep -qF "<string>'$clone_dir/daily_run.sh'</string>" "$plist"
+  grep -qF "<string>'$clone_dir/scheduled_run/run.sh'</string>" "$plist"
   grep -qF "<string>$HOME/Library/Logs/verify-from-gpg/launchd.log</string>" \
     "$plist"
   [ "$(grep -c 'LOGIN_SHELL\|CLONE_DIR\|LOG_DIR' "$plist")" -eq 0 ]
   [ -d "$HOME/Library/Logs/verify-from-gpg" ]
 }
 
-@test 'uses DAILY_RUN_CLONE_DIR and DAILY_RUN_LOG_DIR' {
-  DAILY_RUN_CLONE_DIR="$BATS_TEST_TMPDIR/my clone" \
-    DAILY_RUN_LOG_DIR="$BATS_TEST_TMPDIR/my logs" run_install
+@test 'uses SCHEDULED_RUN_CLONE_DIR and SCHEDULED_RUN_LOG_DIR' {
+  SCHEDULED_RUN_CLONE_DIR="$BATS_TEST_TMPDIR/my clone" \
+    SCHEDULED_RUN_LOG_DIR="$BATS_TEST_TMPDIR/my logs" run_install
 
   [ "$status" -eq 0 ]
-  [ "$(git -C "$BATS_TEST_TMPDIR/my clone" config verify-from-gpg.dailyRun)" \
-    = true ]
-  grep -qF "'$BATS_TEST_TMPDIR/my clone/daily_run.sh'" "$plist"
+  local is_marked
+  is_marked=$(git -C "$BATS_TEST_TMPDIR/my clone" config \
+    verify-from-gpg.scheduledRun)
+  [ "$is_marked" = true ]
+  grep -qF "'$BATS_TEST_TMPDIR/my clone/scheduled_run/run.sh'" "$plist"
   grep -qF "$BATS_TEST_TMPDIR/my logs/launchd.log" "$plist"
+}
+
+# prints the plist's calendar entries as "<weekday> <hour>" lines, with "-" for
+# no weekday.
+schedule_of() {
+  awk '
+    /^<dict>/ { weekday = "-" }
+    /<key>Weekday<\/key>/ {
+      weekday = $0
+      gsub(/.*<integer>|<\/integer>.*/, "", weekday)
+    }
+    /<key>Hour<\/key>/ {
+      hour = $0
+      gsub(/.*<integer>|<\/integer>.*/, "", hour)
+      print weekday, hour
+    }
+  ' "$plist"
+}
+
+@test 'schedules 9:00 every day by default' {
+  run_install
+
+  [ "$status" -eq 0 ]
+  [ "$(schedule_of)" = '- 9' ]
+  [[ "$output" == *'at 9:00 every day'* ]]
+}
+
+@test 'schedules each of SCHEDULED_RUN_HOURS, like every 4 hours' {
+  SCHEDULED_RUN_HOURS=1,5,9,13,17,21 run_install
+
+  [ "$status" -eq 0 ]
+  [ "$(schedule_of | tr '\n' ' ')" = '- 1 - 5 - 9 - 13 - 17 - 21 ' ]
+}
+
+@test 'schedules only SCHEDULED_RUN_WEEKDAYS, like once a week' {
+  SCHEDULED_RUN_HOURS=9,18 SCHEDULED_RUN_WEEKDAYS=1,5 run_install
+
+  [ "$status" -eq 0 ]
+  [ "$(schedule_of | tr '\n' ' ')" = '1 9 5 9 1 18 5 18 ' ]
+  [[ "$output" == *'at 9:00, 18:00 on weekdays 1,5'* ]]
+}
+
+@test 'refuses hours or weekdays out of range' {
+  SCHEDULED_RUN_HOURS=24 run_install
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'SCHEDULED_RUN_HOURS must be hours from 0 to 23'* ]]
+
+  SCHEDULED_RUN_WEEKDAYS=7 run_install
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'SCHEDULED_RUN_WEEKDAYS must be days from 0'* ]]
+  [ ! -f "$plist" ]
 }
 
 @test 'loads the job, reloading it on a reinstall' {
@@ -89,13 +143,13 @@ run_install() {
   grep -q "^bootout gui/$(id -u)/$label$" "$FAKE_LAUNCHCTL_LOG"
 }
 
-@test 'refuses to use a folder that is not a daily run clone' {
+@test 'refuses to use a folder that is not a scheduled run clone' {
   mkdir -p "$clone_dir"
 
   run_install
 
   [ "$status" -eq 1 ]
-  [[ "$output" == *"exists but isn't a daily run clone"* ]]
+  [[ "$output" == *"exists but isn't a scheduled run clone"* ]]
   [ ! -f "$plist" ]
 }
 
@@ -128,7 +182,7 @@ run_install() {
   [ -f "$HOME/Library/Logs/verify-from-gpg/kept.log" ]
 }
 
-@test 'leaves a folder that is not a daily run clone when uninstalling' {
+@test 'leaves a folder that is not a scheduled run clone when uninstalling' {
   mkdir -p "$clone_dir"
   touch "$clone_dir/mine.txt"
 

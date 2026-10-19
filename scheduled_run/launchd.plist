@@ -1,27 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- runs daily_run.sh at 9:00 each day, or when the mac wakes if it was asleep
-then, in your shell as a login shell, so it gets NSEC and PATH from your
-shell's startup files. install_daily_run.sh fills in LOGIN_SHELL, CLONE_DIR,
-and LOG_DIR. -->
+<!-- runs scheduled_run/run.sh on a schedule (or when the mac wakes, if it was
+asleep at a scheduled time), in your shell as a login shell, so it gets NSEC
+and PATH from your shell's startup files. scheduled_run/install.sh fills in
+LOGIN_SHELL, CLONE_DIR, LOG_DIR, and SCHEDULE. -->
 <plist version="1.0">
   <dict>
     <key>Label</key>
-    <string>com.tinfoilhash.verify-from-gpg.daily</string>
+    <string>com.tinfoilhash.verify-from-gpg.scheduled-run</string>
     <key>ProgramArguments</key>
     <array>
       <string>LOGIN_SHELL</string>
       <string>-l</string>
       <string>-c</string>
-      <string>'CLONE_DIR/daily_run.sh'</string>
+      <string>'CLONE_DIR/scheduled_run/run.sh'</string>
     </array>
     <key>StartCalendarInterval</key>
-    <dict>
-      <key>Hour</key>
-      <integer>9</integer>
-      <key>Minute</key>
-      <integer>0</integer>
-    </dict>
+    <array>
+      SCHEDULE
+    </array>
     <key>StandardOutPath</key>
     <string>LOG_DIR/launchd.log</string>
     <key>StandardErrorPath</key>

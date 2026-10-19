@@ -1,22 +1,23 @@
 #!/usr/bin/env bash
 
-# the daily run: updates this clone to main, runs every package for real,
-# audits the keys, then has an ai triage the results by following daily_run.md.
-# if the ai step fails, it opens a plain summary instead. see the readme to set
-# it up.
+# the scheduled run: updates this clone to main, runs every package for real,
+# audits the keys, then has an ai triage the results by following
+# instructions.md. if the ai step fails, it opens a plain summary instead. see
+# the readme to set it up.
 
 ai_command="${AI_COMMAND:-claude -p --dangerously-skip-permissions}"
 ai_timeout_seconds="${AI_TIMEOUT_SECONDS:-3600}"
-log_root="${DAILY_RUN_LOG_DIR:-$HOME/Library/Logs/verify-from-gpg}"
-keep_days="${DAILY_RUN_KEEP_DAYS:-30}"
+log_root="${SCHEDULED_RUN_LOG_DIR:-$HOME/Library/Logs/verify-from-gpg}"
+keep_days="${SCHEDULED_RUN_KEEP_DAYS:-30}"
 
-repo_dir=$(dirname -- "$(realpath "$0")")
+# the repo's root, one up from this script's folder.
+repo_dir=$(dirname -- "$(dirname -- "$(realpath "$0")")")
 cd "$repo_dir" || exit 1
 
 # the run resets this clone to main, so only run in a clone set up for it.
 check_clone() {
-  if [ "$(git config --bool verify-from-gpg.dailyRun)" != true ]; then
-    echo 'not a daily run clone (see the readme), exiting'
+  if [ "$(git config --bool verify-from-gpg.scheduledRun)" != true ]; then
+    echo 'not a scheduled run clone (see the readme), exiting'
     exit 1
   fi
 }
@@ -34,16 +35,16 @@ origin_repo() {
 }
 
 # the repo defaults to origin's, and the account that posts to its owner, so a
-# fork's daily run posts to the fork as its owner.
+# fork's scheduled run posts to the fork as its owner.
 set_github_repo_and_user() {
-  github_repo="${DAILY_RUN_GITHUB_REPO:-$(origin_repo)}"
+  github_repo="${SCHEDULED_RUN_GITHUB_REPO:-$(origin_repo)}"
 
   if [[ ! "$github_repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
-    echo "origin isn't a github repo, so set DAILY_RUN_GITHUB_REPO, exiting"
+    echo "origin isn't a github repo, so set SCHEDULED_RUN_GITHUB_REPO, exiting"
     exit 1
   fi
 
-  github_user="${DAILY_RUN_GITHUB_USER:-${github_repo%%/*}}"
+  github_user="${SCHEDULED_RUN_GITHUB_USER:-${github_repo%%/*}}"
 }
 
 # a stale lock from a run that was killed is taken over, and so is this run's
@@ -58,7 +59,7 @@ take_lock() {
     pid=$(cat "$lock_dir/pid" 2> /dev/null)
 
     if [ -n "$pid" ] && [ "$pid" != "$$" ] && kill -0 "$pid" 2> /dev/null; then
-      echo "another daily run is in progress (pid $pid), exiting"
+      echo "another scheduled run is in progress (pid $pid), exiting"
       exit 1
     fi
   fi
@@ -75,7 +76,7 @@ update_clone() {
   git reset -q --hard origin/main || exit 1
   git clean -q -fd || exit 1
 
-  DAILY_RUN_UPDATED=1 exec "$repo_dir/daily_run.sh"
+  SCHEDULED_RUN_UPDATED=1 exec "$repo_dir/scheduled_run/run.sh"
 }
 
 delete_old_runs() {
@@ -118,9 +119,9 @@ timeout_program='
 # and with DRY_RUN and the npub, so the package scripts it runs are dry runs. it
 # runs as this user, so this guards against mistakes, not a determined ai.
 run_ai() {
-  local prompt="follow daily_run.md in this repo for the daily run in \
-$run_dir, whose issue is \"daily run $run_date\" in $github_repo. you act as \
-the github user $github_user."
+  local prompt="follow scheduled_run/instructions.md in this repo for the \
+scheduled run in $run_dir, whose issue is \"$issue_title\" in $github_repo. \
+you act as the github user $github_user."
 
   local command
   read -r -a command <<< "$ai_command"
@@ -174,7 +175,7 @@ open_plain_issue() {
     fi
   } > "$body"
 
-  gh issue create --repo "$github_repo" --title "daily run $run_date" \
+  gh issue create --repo "$github_repo" --title "$issue_title" \
     --body-file "$body"
 }
 
@@ -195,7 +196,7 @@ main() {
 
   take_lock
 
-  if [ -z "${DAILY_RUN_UPDATED:-}" ]; then
+  if [ -z "${SCHEDULED_RUN_UPDATED:-}" ]; then
     update_clone
   fi
 
@@ -209,7 +210,8 @@ main() {
   GH_TOKEN=$(gh auth token --user "$github_user") || exit 1
   export GH_TOKEN
 
-  run_date=$(date +%Y-%m-%d)
+  # runs can be hours apart, so the title has the time too.
+  issue_title="scheduled run $(date '+%Y-%m-%d %H:%M')"
   run_dir="$log_root/$(date +%Y-%m-%d-%H%M%S)"
   mkdir -p "$run_dir" || exit 1
 
