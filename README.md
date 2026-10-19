@@ -67,31 +67,19 @@ DRY_RUN=1 NPUB={{npub...}} ./verify_all.sh
 
 `daily_run.sh` runs every package for real each day on a mac, then has an ai triage the results by following [daily_run.md](daily_run.md): it opens issues for upstream maintainers, opens prs for bugs in the repo (never merging them), and opens a "daily run" issue in the repo with the day's summary. it posts to the repo the clone came from, as that repo's owner, so a fork's daily run posts to the fork. if the ai step fails, the script opens a plain summary instead. the ai runs without `NSEC` in its environment and with `DRY_RUN` set, so the packages it runs are dry runs. it still runs as you, so this guards against mistakes, not against an ai set on publishing or pushing (it could read the nsec from your shell's startup files, or run code it writes).
 
-it runs in its own clone of this repo (or your fork), since each run resets the clone to `main`. any path works; these commands use `~/Library/Application Support/verify-from-gpg/repo`:
+to install it, run this from a checkout of this repo (or your fork):
 
 ```bash
-git clone https://github.com/{{owner}}/verify-from-gpg.git ~/Library/Application\ Support/verify-from-gpg/repo
+./install_daily_run.sh
 ```
+
+that clones the checkout's origin into its own folder, since each run resets its clone to `main`, and has launchd run it at 9:00 each day (or when the mac wakes). run it again after changing `DAILY_RUN_CLONE_DIR` or `DAILY_RUN_LOG_DIR`. to remove the job and the clone (the logs are kept):
 
 ```bash
-cd ~/Library/Application\ Support/verify-from-gpg/repo && git config verify-from-gpg.dailyRun true && git config credential.helper '' && git config --add credential.helper '!gh auth git-credential'
+./install_daily_run.sh --uninstall
 ```
 
-then schedule it with launchd, for 9:00 each day (or when the mac wakes). launchd writes the run's output to its log folder, which has to exist first:
-
-```bash
-mkdir -p ~/Library/Logs/verify-from-gpg
-```
-
-```bash
-sed -e "s|LOGIN_SHELL|$SHELL|" -e "s|CLONE_DIR|$HOME/Library/Application Support/verify-from-gpg/repo|" -e "s|HOME_DIR|$HOME|g" launchd/com.tinfoilhash.verify-from-gpg.daily.plist > ~/Library/LaunchAgents/com.tinfoilhash.verify-from-gpg.daily.plist
-```
-
-```bash
-launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.tinfoilhash.verify-from-gpg.daily.plist
-```
-
-launchd starts it in your shell (`$SHELL`, filled in above) as a login shell, so `NSEC` and a `PATH` that finds the tools and the ai's cli have to be set in the files that shell reads at login: `~/.zshenv` or `~/.zprofile` for zsh (not `~/.zshrc`), or `~/.bash_profile` for bash. `gh` has to be logged in as the account it posts as, and the ai's cli logged in. to run it now:
+launchd starts it in your shell (`$SHELL`) as a login shell, so `NSEC` and a `PATH` that finds the tools and the ai's cli have to be set in the files that shell reads at login: `~/.zshenv` or `~/.zprofile` for zsh (not `~/.zshrc`), or `~/.bash_profile` for bash. `gh` has to be logged in as the account it posts as, and the ai's cli logged in. to run it now:
 
 ```bash
 launchctl kickstart "gui/$(id -u)/com.tinfoilhash.verify-from-gpg.daily"
@@ -102,6 +90,7 @@ it's configured with env vars, set in the same place as `NSEC`:
 - `AI_COMMAND`: the ai's cli and its flags, which the prompt is appended to (default: `claude -p --dangerously-skip-permissions`). for example, `opencode run --auto -m <provider/model>` or `codex exec --full-auto`.
 - `AI_TIMEOUT_SECONDS`: how long the ai step can run before it's stopped, along with everything it started (default: 3600).
 - `DAILY_RUN_GITHUB_REPO` and `DAILY_RUN_GITHUB_USER`: the repo to post to and the `gh` account to post as (default: the clone's origin and its owner). set the user when an organization owns the repo.
+- `DAILY_RUN_CLONE_DIR`: where the clone goes (default: `~/Library/Application Support/verify-from-gpg/repo`).
 - `DAILY_RUN_LOG_DIR`: where each run's logs go (default: `~/Library/Logs/verify-from-gpg`), kept for `DAILY_RUN_KEEP_DAYS` (default: 30).
 
 ## development

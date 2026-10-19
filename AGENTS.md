@@ -15,7 +15,7 @@ each package script checks a project's new releases: it downloads the release's 
 - `check_keys.sh`: audits the listed keys, and imports them with `--import`.
 - `test/`: the [bats](https://github.com/bats-core/bats-core) suite, with fake `gh`, `nak`, `curl`, and `ai` in `test/fakes`.
 - `.github/workflows/test.yml`: lint and tests on macos and ubuntu.
-- `daily_run.sh` and `daily_run.md`: the daily run on a mac, and the instructions for its ai step.
+- `daily_run.sh` and `daily_run.md`: the daily run on a mac, and the instructions for its ai step. `install_daily_run.sh` sets it up (and removes it with `--uninstall`) from the launchd template in `launchd/`.
 
 ## running scripts
 

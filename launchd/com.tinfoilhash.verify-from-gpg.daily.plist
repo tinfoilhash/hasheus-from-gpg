@@ -2,8 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!-- runs daily_run.sh at 9:00 each day, or when the mac wakes if it was asleep
 then, in your shell as a login shell, so it gets NSEC and PATH from your
-shell's startup files. LOGIN_SHELL, CLONE_DIR, and HOME_DIR are filled in when
-it's installed (see the readme). -->
+shell's startup files. install_daily_run.sh fills in LOGIN_SHELL, CLONE_DIR,
+and LOG_DIR. -->
 <plist version="1.0">
   <dict>
     <key>Label</key>
@@ -23,8 +23,8 @@ it's installed (see the readme). -->
       <integer>0</integer>
     </dict>
     <key>StandardOutPath</key>
-    <string>HOME_DIR/Library/Logs/verify-from-gpg/launchd.log</string>
+    <string>LOG_DIR/launchd.log</string>
     <key>StandardErrorPath</key>
-    <string>HOME_DIR/Library/Logs/verify-from-gpg/launchd.log</string>
+    <string>LOG_DIR/launchd.log</string>
   </dict>
 </plist>
