@@ -7,8 +7,6 @@
 
 ai_command="${AI_COMMAND:-claude -p --dangerously-skip-permissions}"
 ai_timeout_seconds="${AI_TIMEOUT_SECONDS:-3600}"
-github_user="${DAILY_RUN_GITHUB_USER:-tinfoilhash}"
-github_repo="${DAILY_RUN_GITHUB_REPO:-tinfoilhash/verify-from-gpg}"
 log_root="${DAILY_RUN_LOG_DIR:-$HOME/Library/Logs/verify-from-gpg}"
 keep_days="${DAILY_RUN_KEEP_DAYS:-30}"
 
@@ -21,6 +19,31 @@ check_clone() {
     echo 'not a daily run clone (see the readme), exiting'
     exit 1
   fi
+}
+
+# prints the github repo (owner/name) that origin points to.
+origin_repo() {
+  local url
+  url=$(git config --get remote.origin.url)
+  url="${url%.git}"
+
+  case "$url" in
+    https://github.com/*) echo "${url#https://github.com/}" ;;
+    git@github.com:*) echo "${url#git@github.com:}" ;;
+  esac
+}
+
+# the repo defaults to origin's, and the account that posts to its owner, so a
+# fork's daily run posts to the fork as its owner.
+set_github_repo_and_user() {
+  github_repo="${DAILY_RUN_GITHUB_REPO:-$(origin_repo)}"
+
+  if [[ ! "$github_repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+    echo "origin isn't a github repo, so set DAILY_RUN_GITHUB_REPO, exiting"
+    exit 1
+  fi
+
+  github_user="${DAILY_RUN_GITHUB_USER:-${github_repo%%/*}}"
 }
 
 # a stale lock from a run that was killed is taken over, and so is this run's
@@ -96,7 +119,8 @@ timeout_program='
 # runs as this user, so this guards against mistakes, not a determined ai.
 run_ai() {
   local prompt="follow daily_run.md in this repo for the daily run in \
-$run_dir, whose issue is \"daily run $run_date\" in $github_repo."
+$run_dir, whose issue is \"daily run $run_date\" in $github_repo. you act as \
+the github user $github_user."
 
   local command
   read -r -a command <<< "$ai_command"
@@ -179,7 +203,8 @@ main() {
     caffeinate -i -w "$$" &
   fi
 
-  # always post as tinfoil hash, whichever account gh has active.
+  # always post as the run's account, whichever one gh has active.
+  set_github_repo_and_user
   GH_TOKEN=$(gh auth token --user "$github_user") || exit 1
   export GH_TOKEN
 

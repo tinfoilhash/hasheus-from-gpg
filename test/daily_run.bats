@@ -56,6 +56,7 @@ setup() {
   git_quiet clone --bare "$work_dir" "$origin_dir"
   git_quiet clone "$origin_dir" "$clone_dir"
   git -C "$clone_dir" config verify-from-gpg.dailyRun true
+  set_origin https://github.com/tinfoilhash/verify-from-gpg.git
 
   export PATH="$PROJECT_DIR/test/fakes:$PATH"
   export DAILY_RUN_LOG_DIR="$BATS_TEST_TMPDIR/logs"
@@ -67,6 +68,15 @@ setup() {
   export STUB_STATUSES='good 0'
   mkdir -p "$FAKE_GH_ROOT"
   : > "$FAKE_GH_LOG"
+}
+
+# points the clone's origin at a github url, which git maps back to the local
+# origin, so the run reads the url but fetches from the scratch repo.
+set_origin() {
+  local url="$1"
+
+  git -C "$clone_dir" remote set-url origin "$url"
+  git -C "$clone_dir" config "url.$origin_dir.insteadOf" "$url"
 }
 
 run_daily() {
@@ -142,8 +152,46 @@ last_run_dir() {
 
   [ "$status" -eq 0 ]
   grep -q "^args: --model test-model follow daily_run.md .* \"daily run \
-$(date +%Y-%m-%d)\" in tinfoilhash/verify-from-gpg.$" "$FAKE_AI_LOG"
+$(date +%Y-%m-%d)\" in tinfoilhash/verify-from-gpg. " "$FAKE_AI_LOG"
   grep -q '^env: NSEC=unset DRY_RUN=1 NPUB=npub-for-' "$FAKE_AI_LOG"
+}
+
+@test 'tells the ai the repo and the user it acts as' {
+  run_daily
+
+  [ "$status" -eq 0 ]
+  grep -q "in tinfoilhash/verify-from-gpg. you act as the github user \
+tinfoilhash.$" "$FAKE_AI_LOG"
+}
+
+@test 'posts to a fork as its owner' {
+  set_origin git@github.com:someone/verify-from-gpg.git
+
+  FAKE_AI_STATUS=3 run_daily
+
+  [ "$status" -eq 0 ]
+  grep -q "^create someone/verify-from-gpg daily run $(date +%Y-%m-%d) \
+(token-for-someone)$" "$FAKE_GH_LOG"
+}
+
+@test 'posts as DAILY_RUN_GITHUB_USER when set, like for an organization' {
+  set_origin https://github.com/some-org/verify-from-gpg.git
+
+  DAILY_RUN_GITHUB_USER=someone FAKE_AI_STATUS=3 run_daily
+
+  [ "$status" -eq 0 ]
+  grep -q "^create some-org/verify-from-gpg daily run $(date +%Y-%m-%d) \
+(token-for-someone)$" "$FAKE_GH_LOG"
+}
+
+@test 'exits when origin is not on github and no repo is set' {
+  set_origin https://gitlab.com/someone/verify-from-gpg.git
+
+  run_daily
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"origin isn't a github repo"* ]]
+  [ ! -f "$FAKE_AI_LOG" ]
 }
 
 @test 'runs claude by default' {
