@@ -65,7 +65,7 @@ open the issue named in your prompt on this repo (`gh issue create`), written fo
 - **key audit**: new problems and warnings, and the totals.
 - **published**: a `<details>` table of package, release, and file count.
 
-end it with the run directory's path and the model you are.
+end it with the model you are. don't include local paths, like the run directory's.
 
 if nothing needs attention (every package passed or was transient, and there are no new audit findings, replies, issues, or fix prs) and nothing was published, don't open one.
 

@@ -156,7 +156,7 @@ open_plain_issue() {
 
   {
     echo "the ai step failed (exit $ai_status), so this is the plain summary."
-    echo "see \`ai.log\` in \`$run_dir\`."
+    echo "see \`ai.log\` in the run's log folder."
     echo
     echo '### stopped'
     echo
