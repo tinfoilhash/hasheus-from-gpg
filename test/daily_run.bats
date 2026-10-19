@@ -63,7 +63,7 @@ setup() {
   export FAKE_GH_ROOT="$BATS_TEST_TMPDIR/gh"
   export FAKE_GH_LOG="$BATS_TEST_TMPDIR/gh.log"
   export FAKE_AI_LOG="$BATS_TEST_TMPDIR/ai.log"
-  export AI_COMMAND='fake_ai'
+  export AI_COMMAND='ai'
   export STUB_STATUSES='good 0'
   mkdir -p "$FAKE_GH_ROOT"
   : > "$FAKE_GH_LOG"
@@ -138,7 +138,7 @@ last_run_dir() {
 }
 
 @test 'runs AI_COMMAND with the prompt, without the nsec, as a dry run' {
-  AI_COMMAND='fake_ai --model test-model' run_daily
+  AI_COMMAND='ai --model test-model' run_daily
 
   [ "$status" -eq 0 ]
   grep -q "^args: --model test-model follow daily_run.md .* \"daily run \
@@ -149,7 +149,7 @@ $(date +%Y-%m-%d)\" in tinfoilhash/verify-from-gpg.$" "$FAKE_AI_LOG"
 @test 'runs claude by default' {
   unset AI_COMMAND
   mkdir -p "$BATS_TEST_TMPDIR/bin"
-  printf '#!/usr/bin/env bash\nexec fake_ai claude "$@"\n' \
+  printf '#!/usr/bin/env bash\nexec ai claude "$@"\n' \
     > "$BATS_TEST_TMPDIR/bin/claude"
   chmod +x "$BATS_TEST_TMPDIR/bin/claude"
 
