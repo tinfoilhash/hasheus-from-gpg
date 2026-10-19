@@ -181,7 +181,8 @@ open_plain_issue() {
 main() {
   check_clone
 
-  # launchd runs this in a login shell, so the nsec comes from ~/.zshenv.
+  # launchd runs this in a login shell, so the nsec comes from the shell's
+  # startup files.
   if [ -z "${NSEC:-}" ]; then
     echo '$NSEC not set, exiting'
     exit 1

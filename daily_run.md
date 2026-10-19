@@ -12,7 +12,7 @@ your prompt names the run directory, the day's issue and its repo, and the githu
 
 earlier runs are the other folders next to the run directory, named by date and time. compare with the newest one to tell what's new.
 
-you run without the nsec and with `DRY_RUN=1`, so `./packages/<name>/verify.sh` is a dry run. still pass `DRY_RUN=1` on every package run, and never start a fresh login shell (`zsh -l`, `env -i`) to run one, since that would load the nsec without `DRY_RUN`. never publish, read the nsec from anywhere, push to `main`, or merge. the next run resets this clone to `main`, so you don't need to clean up after yourself.
+you run without the nsec and with `DRY_RUN=1`, so `./packages/<name>/verify.sh` is a dry run. still pass `DRY_RUN=1` on every package run, and never start a fresh login shell (like `zsh -l`, `bash -l`, or `env -i`) to run one, since that would load the nsec without `DRY_RUN`. never publish, read the nsec from anywhere, push to `main`, or merge. the next run resets this clone to `main`, so you don't need to clean up after yourself.
 
 for a dry run that rechecks a release already recorded, point `XDG_CONFIG_HOME` at a temp directory (see AGENTS.md) rather than editing the real state in `~/.config/verify-from-gpg`.
 

@@ -21,7 +21,7 @@ in the future, the hope is that the authors of these packages start signing and 
 - [shasum](https://perldoc.perl.org/shasum)
 - [xmllint](https://gnome.pages.gitlab.gnome.org/libxml2/xmllint.html)
 
-curl, file, shasum, and xmllint come with macos. gh must be logged in (`gh auth login`, or set `GH_TOKEN`).
+the [daily run](#daily-run) also needs [git](https://git-scm.com/) and [perl](https://www.perl.org/), and an ai's cli. curl, file, perl, shasum, and xmllint come with macos, and git with its command line tools. gh must be logged in (`gh auth login`, or set `GH_TOKEN`).
 
 ### import gpg keys
 
@@ -65,9 +65,9 @@ DRY_RUN=1 NPUB={{npub...}} ./verify_all.sh
 
 ### daily run
 
-`daily_run.sh` runs every package for real each day on a mac, then has an ai triage the results by following [daily_run.md](daily_run.md): it opens issues for upstream maintainers, opens prs for bugs in the repo (never merging them), and opens a "daily run" issue in the repo with the day's summary. it posts to the repo the clone came from, as that repo's owner, so a fork's daily run posts to the fork. if the ai step fails, the script opens a plain summary instead. the ai runs without `NSEC` in its environment and with `DRY_RUN` set, so the packages it runs are dry runs. it still runs as you, so this guards against mistakes, not against an ai set on publishing or pushing (it could read `~/.zshenv`, or run code it writes).
+`daily_run.sh` runs every package for real each day on a mac, then has an ai triage the results by following [daily_run.md](daily_run.md): it opens issues for upstream maintainers, opens prs for bugs in the repo (never merging them), and opens a "daily run" issue in the repo with the day's summary. it posts to the repo the clone came from, as that repo's owner, so a fork's daily run posts to the fork. if the ai step fails, the script opens a plain summary instead. the ai runs without `NSEC` in its environment and with `DRY_RUN` set, so the packages it runs are dry runs. it still runs as you, so this guards against mistakes, not against an ai set on publishing or pushing (it could read the nsec from your shell's startup files, or run code it writes).
 
-it runs in its own clone of this repo (or your fork), since each run resets the clone to `main`:
+it runs in its own clone of this repo (or your fork), since each run resets the clone to `main`. any path works; these commands use `~/Library/Application Support/verify-from-gpg/repo`:
 
 ```bash
 git clone https://github.com/{{owner}}/verify-from-gpg.git ~/Library/Application\ Support/verify-from-gpg/repo
@@ -84,20 +84,20 @@ mkdir -p ~/Library/Logs/verify-from-gpg
 ```
 
 ```bash
-sed "s|HOME_DIR|$HOME|g" launchd/com.tinfoilhash.verify-from-gpg.daily.plist > ~/Library/LaunchAgents/com.tinfoilhash.verify-from-gpg.daily.plist
+sed -e "s|LOGIN_SHELL|$SHELL|" -e "s|CLONE_DIR|$HOME/Library/Application Support/verify-from-gpg/repo|" -e "s|HOME_DIR|$HOME|g" launchd/com.tinfoilhash.verify-from-gpg.daily.plist > ~/Library/LaunchAgents/com.tinfoilhash.verify-from-gpg.daily.plist
 ```
 
 ```bash
 launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.tinfoilhash.verify-from-gpg.daily.plist
 ```
 
-it runs in a login shell, which reads `~/.zshenv` and `~/.zprofile` but not `~/.zshrc`, so `NSEC` and the `PATH` to the tools (homebrew's, and the ai's cli) have to be set in one of the first two. `gh` has to be logged in as the account it posts as, and the ai's cli logged in. to run it now:
+launchd starts it in your shell (`$SHELL`, filled in above) as a login shell, so `NSEC` and a `PATH` that finds the tools and the ai's cli have to be set in the files that shell reads at login: `~/.zshenv` or `~/.zprofile` for zsh (not `~/.zshrc`), or `~/.bash_profile` for bash. `gh` has to be logged in as the account it posts as, and the ai's cli logged in. to run it now:
 
 ```bash
 launchctl kickstart "gui/$(id -u)/com.tinfoilhash.verify-from-gpg.daily"
 ```
 
-it's configured with env vars, set in `~/.zshenv`:
+it's configured with env vars, set in the same place as `NSEC`:
 
 - `AI_COMMAND`: the ai's cli and its flags, which the prompt is appended to (default: `claude -p --dangerously-skip-permissions`). for example, `opencode run --auto -m <provider/model>` or `codex exec --full-auto`.
 - `AI_TIMEOUT_SECONDS`: how long the ai step can run before it's stopped, along with everything it started (default: 3600).
