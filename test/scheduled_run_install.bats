@@ -118,6 +118,7 @@ schedule_of() {
   SCHEDULED_RUN_HOURS=9,18 SCHEDULED_RUN_WEEKDAYS=1,5 run_install
 
   [ "$status" -eq 0 ]
+  plutil -lint "$plist" > /dev/null 2>&1 || ! command -v plutil > /dev/null
   [ "$(schedule_of | tr '\n' ' ')" = '1 9 5 9 1 18 5 18 ' ]
   [[ "$output" == *'at 9:00, 18:00 on weekdays 1,5'* ]]
 }
@@ -131,6 +132,35 @@ schedule_of() {
   [ "$status" -eq 1 ]
   [[ "$output" == *'SCHEDULED_RUN_WEEKDAYS must be days from 0'* ]]
   [ ! -f "$plist" ]
+}
+
+@test 'refuses paths that would break the plist or the job' {
+  local dir
+  for dir in "$BATS_TEST_TMPDIR/a&b" "$BATS_TEST_TMPDIR/it's" \
+    'relative/clone'; do
+    SCHEDULED_RUN_CLONE_DIR="$dir" run_install
+
+    [ "$status" -eq 1 ]
+    [[ "$output" == *'SCHEDULED_RUN_CLONE_DIR must be an absolute path'* ]]
+  done
+
+  [ ! -f "$plist" ]
+}
+
+@test 'exits when launchd does not load the job' {
+  FAKE_LAUNCHCTL_BOOTSTRAP_FAILS=1 run_install
+
+  [ "$status" -eq 1 ]
+  [[ "$output" != *'installed'* ]]
+}
+
+@test 'warns about NSEC set only in the shell running the install' {
+  rm "$HOME/.bash_profile"
+
+  NSEC=nsec-fake run_install
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"warning: NSEC isn't set"* ]]
 }
 
 @test 'loads the job, reloading it on a reinstall' {

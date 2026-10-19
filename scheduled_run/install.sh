@@ -17,6 +17,18 @@ domain="gui/$(id -u)"
 # the repo's root, one up from this script's folder.
 cd "$(dirname -- "$(dirname -- "$(realpath "$0")")")" || exit 1
 
+# the paths go into the plist with sed and into a single-quoted shell command,
+# so allow only absolute paths without characters that would break either.
+check_path() {
+  local name="$1"
+  local value="$2"
+
+  if [[ "$value" != /* ]] || [[ "$value" =~ [\'\\\|\&\<\>] ]]; then
+    echo "$name must be an absolute path without ' \\ | & < or >, exiting"
+    exit 1
+  fi
+}
+
 check_schedule() {
   local hour='([0-9]|1[0-9]|2[0-3])'
 
@@ -108,6 +120,7 @@ write_plist() {
 
   # `|` separates sed's fields, so the paths can contain `/` and spaces. the
   # schedule goes through the environment, since awk -v can't take newlines.
+  set -o pipefail
   sed -e "s|LOGIN_SHELL|$SHELL|" -e "s|CLONE_DIR|$clone_dir|" \
     -e "s|LOG_DIR|$log_root|g" scheduled_run/launchd.plist \
     | SCHEDULE="$schedule" awk '
@@ -116,15 +129,20 @@ write_plist() {
     ' > "$plist" || exit 1
 }
 
-# the job only sees what the login shell's startup files set.
+# the job only sees what the login shell's startup files set, so check without
+# this shell's NSEC.
 check_login_shell() {
-  if ! "$SHELL" -l -c '[ -n "${NSEC:-}" ]' < /dev/null > /dev/null 2>&1; then
+  if ! env -u NSEC "$SHELL" -l -c '[ -n "${NSEC:-}" ]' < /dev/null \
+    > /dev/null 2>&1; then
     echo "warning: NSEC isn't set in $SHELL's login startup files, so the run"
     echo 'will exit until it is (see the readme)'
   fi
 }
 
 install() {
+  check_path SHELL "$SHELL"
+  check_path SCHEDULED_RUN_CLONE_DIR "$clone_dir"
+  check_path SCHEDULED_RUN_LOG_DIR "$log_root"
   check_schedule
   set_up_clone
   write_plist

@@ -10,7 +10,7 @@ to install it, run this from the root of a checkout of this repo (or your fork):
 ./scheduled_run/install.sh
 ```
 
-that clones the checkout's origin into its own folder, since each run resets its clone to `main`, and has launchd run it on the schedule below (and when the mac wakes, if it was asleep at a scheduled time). run it again after changing the schedule, `SCHEDULED_RUN_CLONE_DIR`, or `SCHEDULED_RUN_LOG_DIR`. to remove the job and the clone (the logs are kept):
+that clones the checkout's origin into its own folder, since each run resets its clone to `main`, and has launchd run it on the schedule below (and when the mac wakes, if it was asleep at a scheduled time). run it again after changing the schedule or `SCHEDULED_RUN_LOG_DIR`. to move the clone, uninstall first, then set `SCHEDULED_RUN_CLONE_DIR` and install again, so the old clone is removed. to remove the job and the clone (the logs are kept):
 
 ```bash
 ./scheduled_run/install.sh --uninstall
@@ -37,5 +37,5 @@ it's configured with env vars, set in the same place as `NSEC`:
 - `SCHEDULED_RUN_GITHUB_REPO` and `SCHEDULED_RUN_GITHUB_USER`: the repo to post to and the `gh` account to post as (default: the clone's origin and its owner). set the user when an organization owns the repo.
 - `SCHEDULED_RUN_HOURS`: the hours to run at, from 0 to 23 (default: `9`). for every 4 hours, `1,5,9,13,17,21`.
 - `SCHEDULED_RUN_WEEKDAYS`: the days to run on, from 0 (sunday) to 6 (default: every day). for once a week on mondays, `1`.
-- `SCHEDULED_RUN_CLONE_DIR`: where the clone goes (default: `~/Library/Application Support/verify-from-gpg/repo`).
+- `SCHEDULED_RUN_CLONE_DIR`: where the clone goes (default: `~/Library/Application Support/verify-from-gpg/repo`). like `SCHEDULED_RUN_LOG_DIR`, it has to be an absolute path, without `'`, `\`, `|`, `&`, `<`, or `>`.
 - `SCHEDULED_RUN_LOG_DIR`: where each run's logs go (default: `~/Library/Logs/verify-from-gpg`), kept for `SCHEDULED_RUN_KEEP_DAYS` (default: 30).

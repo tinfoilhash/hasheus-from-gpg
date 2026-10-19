@@ -189,6 +189,24 @@ tinfoilhash.$" "$FAKE_AI_LOG"
 (token-for-someone)$" "$FAKE_GH_LOG"
 }
 
+@test 'reads an ssh:// origin' {
+  set_origin ssh://git@github.com/someone/verify-from-gpg.git
+
+  FAKE_AI_STATUS=3 run_scheduled
+
+  [ "$status" -eq 0 ]
+  grep -q "^create someone/verify-from-gpg $run_title (token-for-someone)$" \
+    "$FAKE_GH_LOG"
+}
+
+@test 'posts to SCHEDULED_RUN_GITHUB_REPO when set' {
+  SCHEDULED_RUN_GITHUB_REPO=elsewhere/mirror FAKE_AI_STATUS=3 run_scheduled
+
+  [ "$status" -eq 0 ]
+  grep -q "^create elsewhere/mirror $run_title (token-for-elsewhere)$" \
+    "$FAKE_GH_LOG"
+}
+
 @test 'exits when origin is not on github and no repo is set' {
   set_origin https://gitlab.com/someone/verify-from-gpg.git
 

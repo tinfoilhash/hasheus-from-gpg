@@ -31,6 +31,7 @@ origin_repo() {
   case "$url" in
     https://github.com/*) echo "${url#https://github.com/}" ;;
     git@github.com:*) echo "${url#git@github.com:}" ;;
+    ssh://git@github.com/*) echo "${url#ssh://git@github.com/}" ;;
   esac
 }
 

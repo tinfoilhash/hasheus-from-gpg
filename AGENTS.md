@@ -13,7 +13,7 @@ each package script checks a project's new releases: it downloads the release's 
 - `packages/<name>/verify.sh`: one script per package. most are a few lines of config for one of the github flows; bitcoin core, coldcard, and electrum have their own flows. electrum reuses `publish_signed_file` from the per-file github flow.
 - `verify_all.sh`: runs every package script.
 - `check_keys.sh`: audits the listed keys, and imports them with `--import`.
-- `test/`: the [bats](https://github.com/bats-core/bats-core) suite, with fake `gh`, `nak`, `curl`, and `ai` in `test/fakes`.
+- `test/`: the [bats](https://github.com/bats-core/bats-core) suite, with fake `gh`, `nak`, `curl`, `launchctl`, and `ai` in `test/fakes`.
 - `.github/workflows/test.yml`: lint and tests on macos and ubuntu.
 - `scheduled_run/run.sh` and `scheduled_run/instructions.md`: a run on a schedule on a mac, and the instructions for its ai step. `scheduled_run/install.sh` sets it up (and removes it with `--uninstall`) from the launchd template, `scheduled_run/launchd.plist`, and `scheduled_run/README.md` documents it.
 
