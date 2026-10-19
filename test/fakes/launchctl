@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+# records each call in $FAKE_LAUNCHCTL_LOG. `bootout` fails like launchctl does
+# when the job isn't loaded, unless $FAKE_LAUNCHCTL_LOADED is set, and
+# `bootstrap` fails with $FAKE_LAUNCHCTL_BOOTSTRAP_FAILS set.
+
+echo "$*" >> "$FAKE_LAUNCHCTL_LOG"
+
+if [ "$1" = bootstrap ] && [ -n "${FAKE_LAUNCHCTL_BOOTSTRAP_FAILS:-}" ]; then
+  echo 'Bootstrap failed: 5: Input/output error' >&2
+  exit 5
+fi
+
+if [ "$1" = bootout ] && [ -z "${FAKE_LAUNCHCTL_LOADED:-}" ]; then
+  echo 'Boot-out failed: 3: No such process' >&2
+  exit 3
+fi

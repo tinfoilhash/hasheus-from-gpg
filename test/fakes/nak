@@ -10,6 +10,9 @@ case "$1" in
   key)
     printf '%064d\n' 0
     ;;
+  encode)
+    echo "npub-for-$3"
+    ;;
   decode)
     # like nak, print the hex key for an npub, or an error on stdout (with exit
     # 0) for anything else.

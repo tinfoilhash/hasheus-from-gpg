@@ -21,7 +21,7 @@ in the future, the hope is that the authors of these packages start signing and 
 - [shasum](https://perldoc.perl.org/shasum)
 - [xmllint](https://gnome.pages.gitlab.gnome.org/libxml2/xmllint.html)
 
-curl, file, shasum, and xmllint come with macos. gh must be logged in (`gh auth login`, or set `GH_TOKEN`).
+the [scheduled run](scheduled_run/README.md) also needs [git](https://git-scm.com/) and [perl](https://www.perl.org/), and an ai's cli. curl, file, perl, shasum, and xmllint come with macos, and git with its command line tools. gh must be logged in (`gh auth login`, or set `GH_TOKEN`).
 
 ### import gpg keys
 
@@ -63,6 +63,14 @@ a dry run does everything except publish events and record the last release, so 
 DRY_RUN=1 NPUB={{npub...}} ./verify_all.sh
 ```
 
+### scheduled run
+
+[scheduled_run](scheduled_run/README.md) runs every package on a schedule on a mac (daily by default) and has an ai triage the results: it opens issues for upstream maintainers, opens fix prs, and opens an issue with each run's summary. its [readme](scheduled_run/README.md) covers the requirements and settings. to install it:
+
+```bash
+./scheduled_run/install.sh
+```
+
 ## development
 
 ### tests
@@ -76,10 +84,6 @@ brew install actionlint bats-core shellcheck shfmt
 ```bash
 bats test
 ```
-
-### monitoring
-
-the [monitor](.github/workflows/monitor.yml) workflow runs `./check_keys.sh --import` and a dry run of every package each day, to catch upstream changes like a new page layout, a new signer, or an expired or removed key. it fails when the key check finds a problem or a release isn't signed by any listed key, and its summary lists the warnings and any files not published yet.
 
 ### linting & formatting
 
