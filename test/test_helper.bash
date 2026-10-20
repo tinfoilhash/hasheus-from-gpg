@@ -2,6 +2,10 @@
 
 PROJECT_DIR="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
 
+# the scheduled run's ai runs these tests with both set, which would turn every
+# run into a dry run and skip resetting the scheduled run's clone.
+unset DRY_RUN SCHEDULED_RUN_UPDATED
+
 gpg_quiet() {
   gpg -q --batch --pinentry-mode loopback --passphrase '' --yes "$@" \
     2> /dev/null
