@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+package_dir=$(dirname -- "$(realpath "$0")")
+cd "$package_dir" || exit 1
+
+source ../../common/github.sh
+
+check_dependencies
+
+echo '--- verifying envoy'
+
+package_name='envoy'
+repo='Foundation-Devices/envoy'
+key_fingerprints=(
+  'CAD10DEC9C0F94AEE2FA72EFD7B72EE8007187C5' # https://foundation.xyz/security/pgp/envoy-signing.asc
+)
+shasum_filename_pattern='envoy-manifest.txt'
+shasum_signature_filename_pattern="$shasum_filename_pattern.asc"
+
+verify_from_github "$package_name" "$repo" \
+  "$shasum_filename_pattern" "$shasum_signature_filename_pattern" \
+  "${key_fingerprints[@]}"
