@@ -212,6 +212,13 @@ run_signed_files_release() {
   [ "$(published)" = 'elements-23.3.4-x86_64-linux-gnu.tar.gz' ]
 }
 
+@test 'envoy' {
+  run_release envoy v2.3.5 envoy-manifest.txt envoy-manifest.txt.asc \
+    envoy-2.3.5.apk
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'envoy-2.3.5.apk' ]
+}
+
 @test 'faraday' {
   run_release faraday v0.2.14-alpha manifest-v0.2.14-alpha.txt \
     manifest-v0.2.14-alpha.sig faraday-linux-amd64-v0.2.14-alpha.tar.gz
