@@ -1,6 +1,6 @@
 # shellcheck shell=bash
-config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/verify-from-gpg"
-relay='wss://verify-relay.tinfoilhash.com'
+config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/hasheus-from-gpg"
+relay='wss://relay.hasheus.com'
 
 # any value but 0 means a dry run, so a value like `DRY_RUN=true` can't publish
 # for real.

@@ -7,7 +7,7 @@ LOGIN_SHELL, CLONE_DIR, LOG_DIR, and SCHEDULE. -->
 <plist version="1.0">
   <dict>
     <key>Label</key>
-    <string>com.tinfoilhash.verify-from-gpg.scheduled-run</string>
+    <string>com.hasheus.hasheus-from-gpg.scheduled-run</string>
     <key>ProgramArguments</key>
     <array>
       <string>LOGIN_SHELL</string>

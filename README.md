@@ -1,6 +1,6 @@
-# tinfoil hash / verify from gpg
+# hasheus / from gpg
 
-bridge gpg verified files to nostr — such as bitcoin core, coldcard, and more — making them easy to access through a client like [verify](https://verify.tinfoilhash.com/).
+bridge gpg verified files to nostr — such as bitcoin core, coldcard, and more — making them easy to access through a client like [hasheus](https://hasheus.com/).
 
 in the future, the hope is that the authors of these packages start signing and publishing directly with their own nostr identity. until then, this collection of shell scripts automates the process of verifying their gpg signed files and publishing under a nostr identity you control.
 
@@ -51,7 +51,7 @@ to verify an individual package:
 NSEC={{nsec...}} ./packages/{{name}}/verify.sh
 ```
 
-on the first run, only the last 3 releases of a package are verified. subsequent runs verify up to 30 releases since the previous run. the date/time of the last release verified is stored in `~/.config/verify-from-gpg/{{name}}`.
+on the first run, only the last 3 releases of a package are verified. subsequent runs verify up to 30 releases since the previous run. the date/time of the last release verified is stored in `~/.config/hasheus-from-gpg/{{name}}`.
 
 a release whose signature isn't from a listed key, or whose file fails its hash check, stops that package's run without being recorded, so it's tried again on the next run. a signature only counts if its key isn't revoked and the signature was made before the key's expiry date. gpg only knows a key's current expiry date, so if a key lapses and its owner extends it, signatures made during the lapse count too.
 

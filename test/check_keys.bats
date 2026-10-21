@@ -180,7 +180,7 @@ write_signer_package() {
 
 @test 'imports only the listed key from a file with others' {
   write_package missing=missing.asc
-  GNUPGHOME=$(mktemp -d /tmp/verify-from-gpg-test.XXXXXX)
+  GNUPGHOME=$(mktemp -d /tmp/hasheus-from-gpg-test.XXXXXX)
 
   run "$repo_dir/check_keys.sh" --import
 
@@ -272,7 +272,7 @@ write_signer_package() {
 
   # an empty keyring, so the key is reported as not imported.
   local empty_gnupghome
-  empty_gnupghome=$(mktemp -d /tmp/verify-from-gpg-test.XXXXXX)
+  empty_gnupghome=$(mktemp -d /tmp/hasheus-from-gpg-test.XXXXXX)
 
   GNUPGHOME="$empty_gnupghome" run "$repo_dir/check_keys.sh"
 

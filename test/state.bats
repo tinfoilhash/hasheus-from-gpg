@@ -7,7 +7,7 @@ setup() {
   create_repo
   # shellcheck source=../common/common.sh
   source "$repo_dir/common/common.sh"
-  state_file="$XDG_CONFIG_HOME/verify-from-gpg/test"
+  state_file="$XDG_CONFIG_HOME/hasheus-from-gpg/test"
 }
 
 @test 'checks the last 3 releases when there is no state' {

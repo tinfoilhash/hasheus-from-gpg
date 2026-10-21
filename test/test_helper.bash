@@ -13,8 +13,8 @@ gpg_quiet() {
 setup_keyring() {
   # gpg-agent's socket path has a short length limit, so keep the keyrings out
   # of the long default temp directory.
-  GNUPGHOME=$(mktemp -d /tmp/verify-from-gpg-test.XXXXXX)
-  MISSING_GNUPGHOME=$(mktemp -d /tmp/verify-from-gpg-test.XXXXXX)
+  GNUPGHOME=$(mktemp -d /tmp/hasheus-from-gpg-test.XXXXXX)
+  MISSING_GNUPGHOME=$(mktemp -d /tmp/hasheus-from-gpg-test.XXXXXX)
   export GNUPGHOME MISSING_GNUPGHOME
 
   local name
@@ -132,16 +132,16 @@ set_state() {
   local package_name="$1"
   local published_at="$2"
 
-  mkdir -p "$XDG_CONFIG_HOME/verify-from-gpg"
+  mkdir -p "$XDG_CONFIG_HOME/hasheus-from-gpg"
   echo "last_release_published_at='$published_at'" \
-    > "$XDG_CONFIG_HOME/verify-from-gpg/$package_name"
+    > "$XDG_CONFIG_HOME/hasheus-from-gpg/$package_name"
 }
 
 state_of() {
   local package_name="$1"
 
   sed -n "s/^last_release_published_at='\(.*\)'$/\1/p" \
-    "$XDG_CONFIG_HOME/verify-from-gpg/$package_name" 2> /dev/null
+    "$XDG_CONFIG_HOME/hasheus-from-gpg/$package_name" 2> /dev/null
 }
 
 # sorted bytewise, so mixed-case names (like electrum's) sort the same in any

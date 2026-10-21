@@ -54,7 +54,7 @@ import_key() {
   # gpg-agent's socket path has a short length limit, so keep the keyring out of
   # the long default temp directory.
   local home
-  home=$(mktemp -d /tmp/verify-from-gpg-keys.XXXXXX) || exit 1
+  home=$(mktemp -d /tmp/hasheus-from-gpg-keys.XXXXXX) || exit 1
 
   # import only the listed key, even when the file has others.
   GNUPGHOME="$home" gpg -q --batch --import "$key_filename" 2> /dev/null

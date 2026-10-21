@@ -5,12 +5,12 @@
 # SCHEDULED_RUN_WEEKDAYS (9:00 every day by default). with --uninstall, removes
 # the job and the clone, keeping the logs.
 
-app_support_dir="$HOME/Library/Application Support/verify-from-gpg"
+app_support_dir="$HOME/Library/Application Support/hasheus-from-gpg"
 clone_dir="${SCHEDULED_RUN_CLONE_DIR:-$app_support_dir/repo}"
-log_root="${SCHEDULED_RUN_LOG_DIR:-$HOME/Library/Logs/verify-from-gpg}"
+log_root="${SCHEDULED_RUN_LOG_DIR:-$HOME/Library/Logs/hasheus-from-gpg}"
 hours="${SCHEDULED_RUN_HOURS:-9}"
 weekdays="${SCHEDULED_RUN_WEEKDAYS:-}"
-label='com.tinfoilhash.verify-from-gpg.scheduled-run'
+label='com.hasheus.hasheus-from-gpg.scheduled-run'
 plist="$HOME/Library/LaunchAgents/$label.plist"
 domain="gui/$(id -u)"
 
@@ -77,7 +77,7 @@ describe_schedule() {
 
 is_scheduled_run_clone() {
   local is_marked
-  is_marked=$(git -C "$clone_dir" config --bool verify-from-gpg.scheduledRun \
+  is_marked=$(git -C "$clone_dir" config --bool hasheus-from-gpg.scheduledRun \
     2> /dev/null)
 
   [ "$is_marked" = true ]
@@ -103,7 +103,7 @@ set_up_clone() {
   mkdir -p "$(dirname -- "$clone_dir")" || exit 1
   git clone -q "$url" "$clone_dir" || exit 1
 
-  git -C "$clone_dir" config verify-from-gpg.scheduledRun true
+  git -C "$clone_dir" config hasheus-from-gpg.scheduledRun true
   # gh's credentials, so pushes use the account gh is logged in as, not one
   # saved in the keychain.
   git -C "$clone_dir" config credential.helper ''

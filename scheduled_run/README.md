@@ -25,7 +25,7 @@ launchd starts it in your shell (`$SHELL`) as a login shell, so `NSEC` and a `PA
 to run it without waiting for the schedule:
 
 ```bash
-launchctl kickstart "gui/$(id -u)/com.tinfoilhash.verify-from-gpg.scheduled-run"
+launchctl kickstart "gui/$(id -u)/com.hasheus.hasheus-from-gpg.scheduled-run"
 ```
 
 ## settings
@@ -37,5 +37,5 @@ it's configured with env vars, set in the same place as `NSEC`:
 - `SCHEDULED_RUN_GITHUB_REPO` and `SCHEDULED_RUN_GITHUB_USER`: the repo to post to and the `gh` account to post as (default: the clone's origin and its owner). set the user when an organization owns the repo.
 - `SCHEDULED_RUN_HOURS`: the hours to run at, from 0 to 23 (default: `9`). for every 4 hours, `1,5,9,13,17,21`.
 - `SCHEDULED_RUN_WEEKDAYS`: the days to run on, from 0 (sunday) to 6 (default: every day). for once a week on mondays, `1`.
-- `SCHEDULED_RUN_CLONE_DIR`: where the clone goes (default: `~/Library/Application Support/verify-from-gpg/repo`). like `SCHEDULED_RUN_LOG_DIR`, it has to be an absolute path, without `'`, `\`, `|`, `&`, `<`, or `>`.
-- `SCHEDULED_RUN_LOG_DIR`: where each run's logs go (default: `~/Library/Logs/verify-from-gpg`), kept for `SCHEDULED_RUN_KEEP_DAYS` (default: 30).
+- `SCHEDULED_RUN_CLONE_DIR`: where the clone goes (default: `~/Library/Application Support/hasheus-from-gpg/repo`). like `SCHEDULED_RUN_LOG_DIR`, it has to be an absolute path, without `'`, `\`, `|`, `&`, `<`, or `>`.
+- `SCHEDULED_RUN_LOG_DIR`: where each run's logs go (default: `~/Library/Logs/hasheus-from-gpg`), kept for `SCHEDULED_RUN_KEEP_DAYS` (default: 30).

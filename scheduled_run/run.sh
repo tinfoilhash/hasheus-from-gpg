@@ -7,7 +7,7 @@
 
 ai_command="${AI_COMMAND:-claude -p --dangerously-skip-permissions}"
 ai_timeout_seconds="${AI_TIMEOUT_SECONDS:-3600}"
-log_root="${SCHEDULED_RUN_LOG_DIR:-$HOME/Library/Logs/verify-from-gpg}"
+log_root="${SCHEDULED_RUN_LOG_DIR:-$HOME/Library/Logs/hasheus-from-gpg}"
 keep_days="${SCHEDULED_RUN_KEEP_DAYS:-30}"
 
 # the repo's root, one up from this script's folder.
@@ -16,7 +16,7 @@ cd "$repo_dir" || exit 1
 
 # the run resets this clone to main, so only run in a clone set up for it.
 check_clone() {
-  if [ "$(git config --bool verify-from-gpg.scheduledRun)" != true ]; then
+  if [ "$(git config --bool hasheus-from-gpg.scheduledRun)" != true ]; then
     echo 'not a scheduled run clone (see the readme), exiting'
     exit 1
   fi
@@ -91,7 +91,7 @@ check_keys() {
   ./check_keys.sh --import > "$run_dir/keys-import.log" 2>&1
 
   local home
-  home=$(mktemp -d /tmp/verify-from-gpg-audit.XXXXXX) || exit 1
+  home=$(mktemp -d /tmp/hasheus-from-gpg-audit.XXXXXX) || exit 1
   GNUPGHOME="$home" ./check_keys.sh --import > "$run_dir/keys-audit.log" 2>&1
   GNUPGHOME="$home" gpgconf --kill gpg-agent 2> /dev/null
   rm -rf "$home"
