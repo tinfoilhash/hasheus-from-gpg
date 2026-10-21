@@ -1,6 +1,6 @@
 # hasheus / from gpg
 
-bridge gpg verified files to nostr — such as bitcoin core, coldcard, and more — making them easy to access through a client like [hasheus](https://hasheus.com/).
+bridge gpg verified files to nostr — such as bitcoin core, hardware wallet firmware, and more — making them easy to access through a client like [hasheus](https://hasheus.com/).
 
 in the future, the hope is that the authors of these packages start signing and publishing directly with their own nostr identity. until then, this collection of shell scripts automates the process of verifying their gpg signed files and publishing under a nostr identity you control.
 
