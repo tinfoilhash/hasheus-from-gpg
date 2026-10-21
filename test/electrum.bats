@@ -178,7 +178,7 @@ run_electrum() {
 
 @test 'skips files that are already published' {
   run_electrum
-  rm "$XDG_CONFIG_HOME/verify-from-gpg/electrum"
+  rm "$XDG_CONFIG_HOME/hasheus-from-gpg/electrum"
 
   run_electrum
 

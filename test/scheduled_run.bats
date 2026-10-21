@@ -57,8 +57,8 @@ setup() {
   clone_dir="$BATS_TEST_TMPDIR/clone"
   git_quiet clone --bare "$work_dir" "$origin_dir"
   git_quiet clone "$origin_dir" "$clone_dir"
-  git -C "$clone_dir" config verify-from-gpg.scheduledRun true
-  set_origin https://github.com/tinfoilhash/verify-from-gpg.git
+  git -C "$clone_dir" config hasheus-from-gpg.scheduledRun true
+  set_origin https://github.com/tinfoilhash/hasheus-from-gpg.git
 
   export PATH="$PROJECT_DIR/test/fakes:$PATH"
   export SCHEDULED_RUN_LOG_DIR="$BATS_TEST_TMPDIR/logs"
@@ -95,7 +95,7 @@ last_run_dir() {
 }
 
 @test 'refuses to run in a clone not set up for scheduled runs' {
-  git -C "$clone_dir" config --unset verify-from-gpg.scheduledRun
+  git -C "$clone_dir" config --unset hasheus-from-gpg.scheduledRun
 
   run_scheduled
 
@@ -157,7 +157,7 @@ last_run_dir() {
 
   [ "$status" -eq 0 ]
   grep -q "^args: --model test-model follow scheduled_run/instructions.md \
-.* \"$run_title\" in tinfoilhash/verify-from-gpg. " "$FAKE_AI_LOG"
+.* \"$run_title\" in tinfoilhash/hasheus-from-gpg. " "$FAKE_AI_LOG"
   grep -q '^env: NSEC=unset DRY_RUN=1 NPUB=npub-for-' "$FAKE_AI_LOG"
 }
 
@@ -165,37 +165,37 @@ last_run_dir() {
   run_scheduled
 
   [ "$status" -eq 0 ]
-  grep -q "in tinfoilhash/verify-from-gpg. you act as the github user \
+  grep -q "in tinfoilhash/hasheus-from-gpg. you act as the github user \
 tinfoilhash.$" "$FAKE_AI_LOG"
 }
 
 @test 'posts to a fork as its owner' {
-  set_origin git@github.com:someone/verify-from-gpg.git
+  set_origin git@github.com:someone/hasheus-from-gpg.git
 
   FAKE_AI_STATUS=3 run_scheduled
 
   [ "$status" -eq 0 ]
-  grep -q "^create someone/verify-from-gpg $run_title \
+  grep -q "^create someone/hasheus-from-gpg $run_title \
 (token-for-someone)$" "$FAKE_GH_LOG"
 }
 
 @test 'posts as SCHEDULED_RUN_GITHUB_USER when set, like for an organization' {
-  set_origin https://github.com/some-org/verify-from-gpg.git
+  set_origin https://github.com/some-org/hasheus-from-gpg.git
 
   SCHEDULED_RUN_GITHUB_USER=someone FAKE_AI_STATUS=3 run_scheduled
 
   [ "$status" -eq 0 ]
-  grep -q "^create some-org/verify-from-gpg $run_title \
+  grep -q "^create some-org/hasheus-from-gpg $run_title \
 (token-for-someone)$" "$FAKE_GH_LOG"
 }
 
 @test 'reads an ssh:// origin' {
-  set_origin ssh://git@github.com/someone/verify-from-gpg.git
+  set_origin ssh://git@github.com/someone/hasheus-from-gpg.git
 
   FAKE_AI_STATUS=3 run_scheduled
 
   [ "$status" -eq 0 ]
-  grep -q "^create someone/verify-from-gpg $run_title (token-for-someone)$" \
+  grep -q "^create someone/hasheus-from-gpg $run_title (token-for-someone)$" \
     "$FAKE_GH_LOG"
 }
 
@@ -208,7 +208,7 @@ tinfoilhash.$" "$FAKE_AI_LOG"
 }
 
 @test 'exits when origin is not on github and no repo is set' {
-  set_origin https://gitlab.com/someone/verify-from-gpg.git
+  set_origin https://gitlab.com/someone/hasheus-from-gpg.git
 
   run_scheduled
 
@@ -260,7 +260,7 @@ tinfoilhash.$" "$FAKE_AI_LOG"
   STUB_STATUSES=$'good 0\nflaky 1' FAKE_AI_STATUS=3 run_scheduled
 
   [ "$status" -eq 0 ]
-  grep -q "^create tinfoilhash/verify-from-gpg $run_title \
+  grep -q "^create tinfoilhash/hasheus-from-gpg $run_title \
 (token-for-tinfoilhash)$" "$FAKE_GH_LOG"
   grep -q '^the ai step failed (exit 3)' "$FAKE_GH_ROOT/created-100.md"
   grep -q '^- \*\*flaky\*\* (exit 1): relay query failed, exiting$' \

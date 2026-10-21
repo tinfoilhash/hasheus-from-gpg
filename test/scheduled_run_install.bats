@@ -6,7 +6,7 @@
 # shellcheck source=test/test_helper.bash
 source "$BATS_TEST_DIRNAME/test_helper.bash"
 
-label='com.tinfoilhash.verify-from-gpg.scheduled-run'
+label='com.hasheus.from-gpg.scheduled-run'
 
 git_quiet() {
   git -c user.name=test -c user.email=test@test -c init.defaultBranch=main \
@@ -36,7 +36,7 @@ setup() {
   mkdir -p "$HOME"
   echo 'export NSEC=nsec-fake' > "$HOME/.bash_profile"
 
-  clone_dir="$HOME/Library/Application Support/verify-from-gpg/repo"
+  clone_dir="$HOME/Library/Application Support/hasheus-from-gpg/repo"
   plist="$HOME/Library/LaunchAgents/$label.plist"
 }
 
@@ -48,7 +48,7 @@ run_install() {
   run_install
 
   [ "$status" -eq 0 ]
-  [ "$(git -C "$clone_dir" config verify-from-gpg.scheduledRun)" = true ]
+  [ "$(git -C "$clone_dir" config hasheus-from-gpg.scheduledRun)" = true ]
   local helpers
   helpers=$(git -C "$clone_dir" config --local --get-all credential.helper)
   [ "$(tr '\n' ' ' <<< "$helpers")" = ' !gh auth git-credential ' ]
@@ -63,10 +63,10 @@ run_install() {
   plutil -lint "$plist" > /dev/null 2>&1 || ! command -v plutil > /dev/null
   grep -q '<string>/bin/bash</string>' "$plist"
   grep -qF "<string>'$clone_dir/scheduled_run/run.sh'</string>" "$plist"
-  grep -qF "<string>$HOME/Library/Logs/verify-from-gpg/launchd.log</string>" \
+  grep -qF "<string>$HOME/Library/Logs/hasheus-from-gpg/launchd.log</string>" \
     "$plist"
   [ "$(grep -c 'LOGIN_SHELL\|CLONE_DIR\|LOG_DIR' "$plist")" -eq 0 ]
-  [ -d "$HOME/Library/Logs/verify-from-gpg" ]
+  [ -d "$HOME/Library/Logs/hasheus-from-gpg" ]
 }
 
 @test 'uses SCHEDULED_RUN_CLONE_DIR and SCHEDULED_RUN_LOG_DIR' {
@@ -76,7 +76,7 @@ run_install() {
   [ "$status" -eq 0 ]
   local is_marked
   is_marked=$(git -C "$BATS_TEST_TMPDIR/my clone" config \
-    verify-from-gpg.scheduledRun)
+    hasheus-from-gpg.scheduledRun)
   [ "$is_marked" = true ]
   grep -qF "'$BATS_TEST_TMPDIR/my clone/scheduled_run/run.sh'" "$plist"
   grep -qF "$BATS_TEST_TMPDIR/my logs/launchd.log" "$plist"
@@ -201,7 +201,7 @@ schedule_of() {
 
 @test 'uninstalls the job and the clone, keeping the logs' {
   run_install
-  touch "$HOME/Library/Logs/verify-from-gpg/kept.log"
+  touch "$HOME/Library/Logs/hasheus-from-gpg/kept.log"
 
   FAKE_LAUNCHCTL_LOADED=1 run_install --uninstall
 
@@ -209,7 +209,7 @@ schedule_of() {
   grep -q "^bootout gui/$(id -u)/$label$" "$FAKE_LAUNCHCTL_LOG"
   [ ! -f "$plist" ]
   [ ! -e "$clone_dir" ]
-  [ -f "$HOME/Library/Logs/verify-from-gpg/kept.log" ]
+  [ -f "$HOME/Library/Logs/hasheus-from-gpg/kept.log" ]
 }
 
 @test 'leaves a folder that is not a scheduled run clone when uninstalling' {

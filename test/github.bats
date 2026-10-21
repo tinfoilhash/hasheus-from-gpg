@@ -232,7 +232,7 @@ run_package() {
 @test 'downloads only hashes, signatures, and files not published yet' {
   write_package 'manifest-{{NAME}}.txt' 'manifest-*-{{NAME}}.sig' < /dev/null
   run_package per-signer
-  rm "$XDG_CONFIG_HOME/verify-from-gpg/test"
+  rm "$XDG_CONFIG_HOME/hasheus-from-gpg/test"
   grep -v app-v2.tar.gz "$FAKE_NAK_LOG" > "$FAKE_NAK_LOG.new"
   mv "$FAKE_NAK_LOG.new" "$FAKE_NAK_LOG"
   local downloads="$BATS_TEST_TMPDIR/downloads"
@@ -351,7 +351,7 @@ EOF
 @test 'retries a relay query that fails instead of republishing' {
   write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
   run_package clearsigned
-  rm "$XDG_CONFIG_HOME/verify-from-gpg/test"
+  rm "$XDG_CONFIG_HOME/hasheus-from-gpg/test"
   local failures="$BATS_TEST_TMPDIR/failures"
   echo 2 > "$failures"
 
@@ -434,7 +434,7 @@ EOF
 @test 'skips files that are already published' {
   write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
   run_package clearsigned
-  rm "$XDG_CONFIG_HOME/verify-from-gpg/test"
+  rm "$XDG_CONFIG_HOME/hasheus-from-gpg/test"
 
   run_package clearsigned
 
@@ -502,7 +502,7 @@ EOF
 @test 'skips signed files already published without downloading them' {
   write_signed_files_package
   run_package signed-files
-  rm "$XDG_CONFIG_HOME/verify-from-gpg/test"
+  rm "$XDG_CONFIG_HOME/hasheus-from-gpg/test"
   local downloads="$BATS_TEST_TMPDIR/downloads"
 
   FAKE_CURL_LOG="$downloads" run_package signed-files
@@ -517,7 +517,7 @@ EOF
   export FAKE_GH_NO_DIGESTS=1
   write_signed_files_package
   run_package signed-files
-  rm "$XDG_CONFIG_HOME/verify-from-gpg/test"
+  rm "$XDG_CONFIG_HOME/hasheus-from-gpg/test"
   local downloads="$BATS_TEST_TMPDIR/downloads"
 
   FAKE_CURL_LOG="$downloads" run_package signed-files

@@ -85,7 +85,7 @@ downloaded_binaries() {
 
 @test 'downloads only the files that are not published yet' {
   run_bitcoin_core
-  rm "$XDG_CONFIG_HOME/verify-from-gpg/bitcoin_core" "$FAKE_CURL_LOG"
+  rm "$XDG_CONFIG_HOME/hasheus-from-gpg/bitcoin_core" "$FAKE_CURL_LOG"
   grep -v -e 30.0.zip -e 30.1.tar.gz "$FAKE_NAK_LOG" > "$FAKE_NAK_LOG.new"
   mv "$FAKE_NAK_LOG.new" "$FAKE_NAK_LOG"
 

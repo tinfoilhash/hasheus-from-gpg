@@ -25,7 +25,7 @@ each package script checks a project's new releases: it downloads the release's 
   DRY_RUN=1 NPUB={{npub...}} ./packages/{{name}}/verify.sh
   ```
 
-- point `XDG_CONFIG_HOME` at a temp directory to check from an empty state (the last 3 releases) without touching the real state in `~/.config/verify-from-gpg`.
+- point `XDG_CONFIG_HOME` at a temp directory to check from an empty state (the last 3 releases) without touching the real state in `~/.config/hasheus-from-gpg`.
 - `gh` must be logged in (`gh auth login`, or set `GH_TOKEN`).
 
 ## rules the code keeps
@@ -47,7 +47,7 @@ each package script checks a project's new releases: it downloads the release's 
 - each listed fingerprint has a comment with the https url it's published at, preferably in the project's own repo. check the fingerprint against that file (`gpg --show-keys`) before listing it.
 - new keys usually show up as a release that fails its signature check. find who signed it (`gpg --list-packets` shows the issuer), and confirm the key is published by the project before listing it.
 - run `./check_keys.sh` after changing a list. `./check_keys.sh --import` imports only the listed key from each url.
-- adding a key doesn't recheck releases that were already recorded. to retry one, set the package's state to just before the release's date, then do a real run (files already published are skipped). the state is `~/.config/verify-from-gpg/<package_name>` (under `XDG_CONFIG_HOME` if set), a single line in the release date's format, for example:
+- adding a key doesn't recheck releases that were already recorded. to retry one, set the package's state to just before the release's date, then do a real run (files already published are skipped). the state is `~/.config/hasheus-from-gpg/<package_name>` (under `XDG_CONFIG_HOME` if set), a single line in the release date's format, for example:
 
   ```
   last_release_published_at='2026-09-14T16:03:50Z'
