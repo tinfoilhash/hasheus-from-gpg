@@ -6,7 +6,7 @@
 # shellcheck source=test/test_helper.bash
 source "$BATS_TEST_DIRNAME/test_helper.bash"
 
-label='com.hasheus.hasheus-from-gpg.scheduled-run'
+label='com.hasheus.from-gpg.scheduled-run'
 
 git_quiet() {
   git -c user.name=test -c user.email=test@test -c init.defaultBranch=main \

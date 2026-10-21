@@ -10,7 +10,7 @@ clone_dir="${SCHEDULED_RUN_CLONE_DIR:-$app_support_dir/repo}"
 log_root="${SCHEDULED_RUN_LOG_DIR:-$HOME/Library/Logs/hasheus-from-gpg}"
 hours="${SCHEDULED_RUN_HOURS:-9}"
 weekdays="${SCHEDULED_RUN_WEEKDAYS:-}"
-label='com.hasheus.hasheus-from-gpg.scheduled-run'
+label='com.hasheus.from-gpg.scheduled-run'
 plist="$HOME/Library/LaunchAgents/$label.plist"
 domain="gui/$(id -u)"
 

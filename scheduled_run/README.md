@@ -25,7 +25,7 @@ launchd starts it in your shell (`$SHELL`) as a login shell, so `NSEC` and a `PA
 to run it without waiting for the schedule:
 
 ```bash
-launchctl kickstart "gui/$(id -u)/com.hasheus.hasheus-from-gpg.scheduled-run"
+launchctl kickstart "gui/$(id -u)/com.hasheus.from-gpg.scheduled-run"
 ```
 
 ## settings
