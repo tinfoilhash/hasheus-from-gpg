@@ -383,6 +383,15 @@ publish_signed_file() {
     echo 'verified: yes'
   else
     echo 'verified: no'
+
+    # anything but a bad signature, like one from a key that isn't listed yet,
+    # can be fixed on our side, so exit without recording the release and try
+    # again on the next run.
+    if ! has_bad_signature "$signature_filename" "$filename"; then
+      echo 'file not verified, exiting'
+      exit 1
+    fi
+
     skip_unverified_file "$filename"
     return
   fi
@@ -392,10 +401,21 @@ publish_signed_file() {
   publish_to_verify "$filename" "$hash" "$url" "$content_type" "$size" || exit 1
 }
 
-# a file that fails its check is never published, but it doesn't stop the run:
-# a failed download fails before the check, so it's almost always the project's
-# to fix, and one bad file shouldn't block the release's other files and later
-# releases. `complete_release` still exits 1 so it's reported.
+# whether gpg finds a signature that doesn't match the data, so the file isn't
+# what was signed and listing or importing a key can't fix it.
+has_bad_signature() {
+  local signature_filename="$1"
+  local data_filename="$2"
+
+  gpg --status-fd 1 --verify "$signature_filename" "$data_filename" \
+    2> /dev/null | grep -q '^\[GNUPG:\] BADSIG '
+}
+
+# a file that fails its hash check or has a bad signature isn't what the
+# project published or signed, so it's theirs to fix (a failed download fails
+# before the check). it's never published, but it doesn't stop the run, so one
+# bad file doesn't block the release's other files and later releases.
+# `complete_release` still exits 1 so it's reported.
 skip_unverified_file() {
   local filename="$1"
 

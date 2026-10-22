@@ -127,14 +127,13 @@ run_electrum() {
   published_is Electrum-4.8.2.tar.gz electrum-4.8.2.dmg
 }
 
-@test 'skips files not signed by a listed key, records, and exits 1' {
+@test 'exits without recording a file not signed by a listed key' {
   FAKE_CURL_ROOT="$BATS_FILE_TMPDIR/site-unlisted-signer" run_electrum
 
   [ "$status" -eq 1 ]
-  [[ "$output" == *'file not verified, skipping'* ]]
-  [[ "$output" == *'skipped files that failed verification'* ]]
+  [[ "$output" == *'file not verified, exiting'* ]]
   [ -z "$(published)" ]
-  [ "$(state_of electrum)" = '2026-08-12T15:10' ]
+  [ -z "$(state_of electrum)" ]
   [ -z "$(leftover_files electrum)" ]
 }
 
