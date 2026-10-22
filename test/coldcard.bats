@@ -103,13 +103,13 @@ run_coldcard() {
   [ -z "$(leftover_files coldcard)" ]
 }
 
-@test 'exits without publishing or recording firmware that fails its hash' {
+@test 'skips firmware that fails its hash, records, and exits 1' {
   FAKE_CURL_ROOT="$BATS_FILE_TMPDIR/site-tampered" run_coldcard
 
   [ "$status" -eq 1 ]
-  [[ "$output" == *'file not verified, exiting'* ]]
+  [[ "$output" == *"failed verification ($FIRMWARE_5_6_3), exiting"* ]]
   published_is "$FIRMWARE_5_6_1"
-  [ "$(state_of coldcard)" = '2026-08-20T1336' ]
+  [ "$(state_of coldcard)" = '2026-09-30T2026' ]
 }
 
 @test 'exits without recording firmware that signatures.txt does not have yet' {

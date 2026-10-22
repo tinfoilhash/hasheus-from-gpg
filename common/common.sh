@@ -298,10 +298,8 @@ publish_file() {
     echo 'verified: yes'
   else
     echo 'verified: no'
-    # a failed download can also cause this, so exit without recording the
-    # release and try again on the next run.
-    echo 'file not verified, exiting'
-    exit 1
+    skip_unverified_file "$filename"
+    return
   fi
 
   echo '------- publishing event'
@@ -385,15 +383,24 @@ publish_signed_file() {
     echo 'verified: yes'
   else
     echo 'verified: no'
-    # a failed download can also cause this, so exit without recording the
-    # release and try again on the next run.
-    echo 'file not verified, exiting'
-    exit 1
+    skip_unverified_file "$filename"
+    return
   fi
 
   echo '------- publishing event'
 
   publish_to_verify "$filename" "$hash" "$url" "$content_type" "$size" || exit 1
+}
+
+# a file that fails its check is never published, but it doesn't stop the run:
+# a failed download fails before the check, so it's almost always the project's
+# to fix, and one bad file shouldn't block the release's other files and later
+# releases. `complete_release` still exits 1 so it's reported.
+skip_unverified_file() {
+  local filename="$1"
+
+  echo 'file not verified, skipping'
+  unverified_filenames+=("$filename")
 }
 
 download_file() {
@@ -417,6 +424,8 @@ start_release() {
     exit 1
   fi
 
+  unverified_filenames=()
+
   # start every attempt from an empty directory so a partial download from an
   # interrupted run is never reused.
   release_dir=$(mktemp -d "$package_dir/release.XXXXXX") || exit 1
@@ -436,10 +445,17 @@ complete_release() {
 
   if is_dry_run; then
     echo "dry run: would record $published_at"
-    return
-  fi
-
-  cat > "$state_file" << EOF
+  else
+    cat > "$state_file" << EOF
 last_release_published_at='$published_at'
 EOF
+  fi
+
+  # the release is recorded so the next run moves past it, but stop this run so
+  # the skipped files are reported.
+  if [ "${#unverified_filenames[@]}" -gt 0 ]; then
+    echo "skipped files that failed verification" \
+      "(${unverified_filenames[*]}), exiting"
+    exit 1
+  fi
 }

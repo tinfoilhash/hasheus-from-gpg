@@ -300,15 +300,16 @@ EOF
   [ "$(state_of test)" = '2026-01-01T00:00:00Z' ]
 }
 
-@test 'exits without publishing or recording a file that fails its hash check' {
+@test 'skips a file that fails its hash check, records, and exits 1' {
   write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
 
   run_package tampered
 
   [ "$status" -eq 1 ]
-  [[ "$output" == *'file not verified, exiting'* ]]
+  [[ "$output" == *'file not verified, skipping'* ]]
+  [[ "$output" == *'skipped files that failed verification (app-v1.zip)'* ]]
   [ -z "$(published)" ]
-  [ -z "$(state_of test)" ]
+  [ "$(state_of test)" = '2026-01-01T00:00:00Z' ]
 }
 
 @test 'checks only releases published since the last run' {
@@ -465,26 +466,44 @@ EOF
   [ "$(state_of test)" = '2026-01-01T00:00:00Z' ]
 }
 
-@test 'exits without recording a file not signed by a listed key' {
+@test 'skips files not signed by a listed key, records, and exits 1' {
   write_signed_files_package
 
   run_package signed-files-unlisted-signer
 
   [ "$status" -eq 1 ]
-  [[ "$output" == *'file not verified, exiting'* ]]
+  [[ "$output" == *'file not verified, skipping'* ]]
+  [[ "$output" == *'verification (app-v1.dmg app-v1.exe), exiting'* ]]
   [ -z "$(published)" ]
-  [ -z "$(state_of test)" ]
+  [ "$(state_of test)" = '2026-01-01T00:00:00Z' ]
   [ -z "$(leftover_files test)" ]
 }
 
-@test 'exits without publishing or recording a file changed after signing' {
+@test 'skips a file changed after signing and moves past it on the next run' {
   write_signed_files_package
 
   run_package signed-files-tampered
 
   [ "$status" -eq 1 ]
-  [[ "$output" == *'file not verified, exiting'* ]]
+  [[ "$output" == *'skipped files that failed verification (app-v1.exe)'* ]]
   published_is app-v1.dmg
+  [ "$(state_of test)" = '2026-01-01T00:00:00Z' ]
+
+  run_package signed-files-tampered
+
+  [ "$status" -eq 0 ]
+  published_is app-v1.dmg
+}
+
+@test 'exits 1 without recording a skipped file in a dry run' {
+  write_signed_files_package
+
+  DRY_RUN=1 run_package signed-files-tampered
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'dry run: would record 2026-01-01T00:00:00Z'* ]]
+  [[ "$output" == *'skipped files that failed verification (app-v1.exe)'* ]]
+  [ -z "$(published)" ]
   [ -z "$(state_of test)" ]
 }
 

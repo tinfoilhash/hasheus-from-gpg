@@ -30,7 +30,7 @@ each package script checks a project's new releases: it downloads the release's 
 
 ## rules the code keeps
 
-- **fail closed.** a release that fails its signature check, or a file that fails its hash check, stops the package's run without being recorded, so it's retried. a download or relay failure does the same. only a release with no manifest or signature file (or, signing each file, no signed files) is skipped and recorded.
+- **fail closed.** only verified files are published. a release whose manifest fails its signature check stops the package's run without being recorded, so it's retried (usually once the signer's key is listed). a download or relay failure does the same. a file that fails its own check (its hash, or signing each file, its signature) is skipped instead, so one bad file doesn't block the rest: the release is recorded, then the run exits 1 so it's reported once. see `skip_unverified_file`. a release with no manifest or signature file (or, signing each file, no signed files) is skipped and recorded.
 - **a release is recorded only after all of its files are published or skipped.** never write state before that.
 - **a signature counts only if** it's from a listed key (by primary or signing subkey fingerprint), the key isn't revoked, and it was made before the key's expiry date. see `verify_gpg_signature`.
 - **remote data is untrusted.** release names and dates come from the projects' sites and apis: pass them to jaq with `--arg`, never interpolate them into a program; never use a release name as a directory (each release downloads into a fresh `mktemp` directory); and validate dates before use (`is_valid_published_at`). the state file is parsed, never sourced.

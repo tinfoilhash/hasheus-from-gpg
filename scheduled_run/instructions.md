@@ -28,6 +28,8 @@ for each package with a non-zero status, find the cause in its log, then sort it
 2. **upstream**: something the project's maintainers have to fix, like a signature from a key that isn't published, an expired key, a wrong or missing signature file, or a renamed manifest. see [upstream issues](#upstream-issues).
 3. **ours**: a bug in this repo, like a key we should list that the project publishes, a pattern that no longer matches the project's file names, or a script error. see [fixes](#fixes).
 
+a package that ends with "skipped files that failed verification" recorded the release without those files, so this is the only run that reports them. confirm the failure yourself (a file changed or signed wrongly upstream), treat it as upstream, and say in the summary which files were skipped and that they won't be retried.
+
 do the same for problems and warnings in `keys-audit.log` that weren't in the previous run's. before calling a missing key upstream, check `keys-import.log`: a key that failed to import (a network error, say) is ours, and the next run imports it again.
 
 check these too, and include what you find in the summary:

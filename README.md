@@ -53,7 +53,7 @@ NSEC={{nsec...}} ./packages/{{name}}/verify.sh
 
 on the first run, only the last 3 releases of a package are verified. subsequent runs verify up to 30 releases since the previous run. the date/time of the last release verified is stored in `~/.config/hasheus-from-gpg/{{name}}`.
 
-a release whose signature isn't from a listed key, or whose file fails its hash check, stops that package's run without being recorded, so it's tried again on the next run. a signature only counts if its key isn't revoked and the signature was made before the key's expiry date. gpg only knows a key's current expiry date, so if a key lapses and its owner extends it, signatures made during the lapse count too.
+a release whose signature isn't from a listed key stops that package's run without being recorded, so it's tried again on the next run. a file that fails its hash check (or its signature, for projects that sign each file) isn't published, but it doesn't block the release's other files or later releases: the release is recorded, and the run exits 1 so the skipped file is reported. a signature only counts if its key isn't revoked and the signature was made before the key's expiry date. gpg only knows a key's current expiry date, so if a key lapses and its owner extends it, signatures made during the lapse count too.
 
 ### dry run
 
