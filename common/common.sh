@@ -298,10 +298,8 @@ publish_file() {
     echo 'verified: yes'
   else
     echo 'verified: no'
-    # a failed download can also cause this, so exit without recording the
-    # release and try again on the next run.
-    echo 'file not verified, exiting'
-    exit 1
+    skip_unverified_file "$filename"
+    return
   fi
 
   echo '------- publishing event'
@@ -385,15 +383,44 @@ publish_signed_file() {
     echo 'verified: yes'
   else
     echo 'verified: no'
-    # a failed download can also cause this, so exit without recording the
-    # release and try again on the next run.
-    echo 'file not verified, exiting'
-    exit 1
+
+    # anything but a bad signature, like one from a key that isn't listed yet,
+    # can be fixed on our side, so exit without recording the release and try
+    # again on the next run.
+    if ! has_bad_signature "$signature_filename" "$filename"; then
+      echo 'file not verified, exiting'
+      exit 1
+    fi
+
+    skip_unverified_file "$filename"
+    return
   fi
 
   echo '------- publishing event'
 
   publish_to_verify "$filename" "$hash" "$url" "$content_type" "$size" || exit 1
+}
+
+# whether gpg finds a signature that doesn't match the data, so the file isn't
+# what was signed and listing or importing a key can't fix it.
+has_bad_signature() {
+  local signature_filename="$1"
+  local data_filename="$2"
+
+  gpg --status-fd 1 --verify "$signature_filename" "$data_filename" \
+    2> /dev/null | grep -q '^\[GNUPG:\] BADSIG '
+}
+
+# a file that fails its hash check or has a bad signature isn't what the
+# project published or signed, so it's theirs to fix (a failed download fails
+# before the check). it's never published, but it doesn't stop the run, so one
+# bad file doesn't block the release's other files and later releases.
+# `complete_release` still exits 1 so it's reported.
+skip_unverified_file() {
+  local filename="$1"
+
+  echo 'file not verified, skipping'
+  unverified_filenames+=("$filename")
 }
 
 download_file() {
@@ -417,6 +444,8 @@ start_release() {
     exit 1
   fi
 
+  unverified_filenames=()
+
   # start every attempt from an empty directory so a partial download from an
   # interrupted run is never reused.
   release_dir=$(mktemp -d "$package_dir/release.XXXXXX") || exit 1
@@ -436,10 +465,17 @@ complete_release() {
 
   if is_dry_run; then
     echo "dry run: would record $published_at"
-    return
-  fi
-
-  cat > "$state_file" << EOF
+  else
+    cat > "$state_file" << EOF
 last_release_published_at='$published_at'
 EOF
+  fi
+
+  # the release is recorded so the next run moves past it, but stop this run so
+  # the skipped files are reported.
+  if [ "${#unverified_filenames[@]}" -gt 0 ]; then
+    echo "skipped files that failed verification" \
+      "(${unverified_filenames[*]}), exiting"
+    exit 1
+  fi
 }

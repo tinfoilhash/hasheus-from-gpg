@@ -137,14 +137,14 @@ run_electrum() {
   [ -z "$(leftover_files electrum)" ]
 }
 
-@test 'exits without publishing or recording a file changed after signing' {
+@test 'skips a file changed after signing, records, and exits 1' {
   FAKE_CURL_ROOT="$BATS_FILE_TMPDIR/site-tampered" run_electrum
 
   [ "$status" -eq 1 ]
-  [[ "$output" == *'file not verified, exiting'* ]]
+  [[ "$output" == *'failed verification (electrum-4.8.2.dmg), exiting'* ]]
   published_is Electrum-4.8.1.tar.gz Electrum-4.8.2.tar.gz \
     electrum-4.8.1.dmg
-  [ "$(state_of electrum)" = '2026-08-12T15:10' ]
+  [ "$(state_of electrum)" = '2026-09-12T18:10' ]
 }
 
 @test 'skips and records a version with no signed files' {

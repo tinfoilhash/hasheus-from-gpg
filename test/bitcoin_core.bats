@@ -104,12 +104,13 @@ downloaded_binaries() {
   [ "$(state_of bitcoin_core)" = '2026-01-01T00:00:00+0000' ]
 }
 
-@test 'exits without publishing or recording a file that fails its hash' {
+@test 'skips a file that fails its hash, records, and exits 1' {
   FAKE_CURL_ROOT="$BATS_FILE_TMPDIR/site-tampered" run_bitcoin_core
 
   [ "$status" -eq 1 ]
+  [[ "$output" == *'failed verification (bitcoin-30.1.zip), exiting'* ]]
   published_is bitcoin-30.0.tar.gz bitcoin-30.0.zip bitcoin-30.1.tar.gz
-  [ "$(state_of bitcoin_core)" = '2026-01-01T00:00:00+0000' ]
+  [ "$(state_of bitcoin_core)" = '2026-02-02T00:00:00+0000' ]
 }
 
 @test 'exits 1 when the release feed cannot be fetched' {

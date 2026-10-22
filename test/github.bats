@@ -130,7 +130,7 @@ setup_file() {
     v1=2026-01-01T00:00:00Z
 
   make_release_with_signed_files "$root/signed-files-tampered/github.example" v1
-  echo 'changed' >> "$root/signed-files-tampered/github.example/v1/app-v1.exe"
+  echo 'changed' >> "$root/signed-files-tampered/github.example/v1/app-v1.dmg"
   write_releases "$root/signed-files-tampered/github.example" \
     v1=2026-01-01T00:00:00Z
 
@@ -300,15 +300,16 @@ EOF
   [ "$(state_of test)" = '2026-01-01T00:00:00Z' ]
 }
 
-@test 'exits without publishing or recording a file that fails its hash check' {
+@test 'skips a file that fails its hash check, records, and exits 1' {
   write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
 
   run_package tampered
 
   [ "$status" -eq 1 ]
-  [[ "$output" == *'file not verified, exiting'* ]]
+  [[ "$output" == *'file not verified, skipping'* ]]
+  [[ "$output" == *'skipped files that failed verification (app-v1.zip)'* ]]
   [ -z "$(published)" ]
-  [ -z "$(state_of test)" ]
+  [ "$(state_of test)" = '2026-01-01T00:00:00Z' ]
 }
 
 @test 'checks only releases published since the last run' {
@@ -477,14 +478,45 @@ EOF
   [ -z "$(leftover_files test)" ]
 }
 
-@test 'exits without publishing or recording a file changed after signing' {
+@test 'skips a file changed after signing and moves past it on the next run' {
   write_signed_files_package
 
   run_package signed-files-tampered
 
   [ "$status" -eq 1 ]
-  [[ "$output" == *'file not verified, exiting'* ]]
-  published_is app-v1.dmg
+  [[ "$output" == *'file not verified, skipping'* ]]
+  [[ "$output" == *'skipped files that failed verification (app-v1.dmg)'* ]]
+  published_is app-v1.exe
+  [ "$(state_of test)" = '2026-01-01T00:00:00Z' ]
+  [ -z "$(leftover_files test)" ]
+
+  run_package signed-files-tampered
+
+  [ "$status" -eq 0 ]
+  published_is app-v1.exe
+}
+
+@test 'exits without recording a skipped file when a later download fails' {
+  write_signed_files_package
+
+  FAKE_CURL_FAIL=app-v1.exe run_package signed-files-tampered
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'file not verified, skipping'* ]]
+  [ -z "$(published)" ]
+  [ -z "$(state_of test)" ]
+  [ -z "$(leftover_files test)" ]
+}
+
+@test 'exits 1 without recording a skipped file in a dry run' {
+  write_signed_files_package
+
+  DRY_RUN=1 run_package signed-files-tampered
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'dry run: would record 2026-01-01T00:00:00Z'* ]]
+  [[ "$output" == *'skipped files that failed verification (app-v1.dmg)'* ]]
+  [ -z "$(published)" ]
   [ -z "$(state_of test)" ]
 }
 
