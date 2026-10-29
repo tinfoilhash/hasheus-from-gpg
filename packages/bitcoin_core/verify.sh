@@ -45,6 +45,7 @@ key_fingerprints=(
   '133EAC179436F14A5CF1B794860FEB804E669320' # https://raw.githubusercontent.com/bitcoin-core/guix.sigs/refs/heads/main/builder-keys/sipa.gpg
   '9D3CC86A72F8494342EA5FD10A41BDC3F4FAFF1C' # https://raw.githubusercontent.com/bitcoin-core/guix.sigs/refs/heads/main/builder-keys/sipsorcery.gpg
   'ED9BDF7AD6A55E232E84524257FF9BDBCC301009' # https://raw.githubusercontent.com/bitcoin-core/guix.sigs/refs/heads/main/builder-keys/Sjors.gpg
+  'E60FE080866DE5F71C8DF3A05CB1CE6E5E66A757' # https://raw.githubusercontent.com/bitcoin-core/guix.sigs/refs/heads/main/builder-keys/stickies-v.gpg
   '33C103B4B2794170546CCF7BCFB2C83C66CD792A' # https://raw.githubusercontent.com/bitcoin-core/guix.sigs/refs/heads/main/builder-keys/svanstaa.gpg
   '2197D5689DE3AF13B4FDABC47B18557E3AF1CDA5' # https://raw.githubusercontent.com/bitcoin-core/guix.sigs/refs/heads/main/builder-keys/tapcrafter.gpg
   '6A8F9C266528E25AEB1D7731C2371D91CB716EA7' # https://raw.githubusercontent.com/bitcoin-core/guix.sigs/refs/heads/main/builder-keys/theStack.gpg
