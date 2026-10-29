@@ -22,6 +22,7 @@ key_fingerprints=(
   '2DEA254A2055EFD1DA82BB2315D2B66859703841' # https://raw.githubusercontent.com/bitcoinknots/guix.sigs/knots/builder-keys/bigshiny90.gpg
   '314B8D611A0C0468498C35C52018C90B857A0571' # https://raw.githubusercontent.com/bitcoinknots/guix.sigs/knots/builder-keys/innerhat-dev.gpg
   'A47D99B6DB0D715D40C59A2023AE8A8EA7E24E38' # https://raw.githubusercontent.com/bitcoinknots/guix.sigs/knots/builder-keys/kwsantiago.gpg
+  'FA651CDD56832225FEA35B4EA1E0862F6A7AC6AE' # https://raw.githubusercontent.com/bitcoinknots/guix.sigs/knots/builder-keys/horizon-btc.gpg
   '982A193E3CE0EED535E09023188CBB2648416AD5' # https://raw.githubusercontent.com/bitcoinknots/guix.sigs/knots/builder-keys/0xb10c.gpg
   '152812300785C96444D3334D17565732E08E5E41' # https://raw.githubusercontent.com/bitcoinknots/guix.sigs/knots/builder-keys/achow101.gpg
   '95636F3538D9262765AB29BEE952E584CA8C0F45' # https://raw.githubusercontent.com/bitcoinknots/guix.sigs/knots/builder-keys/bitcoinmechanic.gpg
