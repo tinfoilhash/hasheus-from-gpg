@@ -374,6 +374,14 @@ run_signed_files_release() {
   [ "$(published)" = '2.9.3.apk' ]
 }
 
+@test 'peach' {
+  run_release peach 'v0.69.0(397)' manifest-peach-0.69.0-397.txt \
+    manifest-peach-0.69.0-397.sig app-prod-universal-release.apk \
+    output-metadata.json
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'app-prod-universal-release.apk' ]
+}
+
 @test 'phoenix' {
   run_release phoenix android-v2.8.4 SHA256SUMS.asc SHA256SUMS.asc \
     phoenix-120-2.8.4-mainnet.apk
