@@ -375,6 +375,13 @@ run_signed_files_release() {
   [ "$(published)" = 'phoenixd-0.9.3-linux-x64.zip' ]
 }
 
+@test 'robosats' {
+  run_signed_files_release robosats v0.8.7-alpha .asc \
+    robosats-v0.8.7.alpha-universal.017de9a.apk
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'robosats-v0.8.7.alpha-universal.017de9a.apk' ]
+}
+
 @test 'seedsigner' {
   run_release seedsigner 0.8.7 seedsigner.0.8.7.sha256.txt \
     seedsigner.0.8.7.sha256.txt.sig seedsigner_os.0.8.7.pi0.img
