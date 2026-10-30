@@ -174,6 +174,13 @@ run_signed_files_release() {
   [ "$(published)" = 'Blockstream-x86_64.AppImage' ]
 }
 
+@test 'blockstream green android' {
+  run_release blockstream_green_android release_5.7.0 SHA256SUMS.asc \
+    SHA256SUMS.asc BlockstreamGreen-v5.7.0-productionGoogle-release.apk
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'BlockstreamGreen-v5.7.0-productionGoogle-release.apk' ]
+}
+
 @test 'bluewallet' {
   run_signed_files_release bluewallet v8.0.2 .sig BlueWallet-8.0.2.apk
   [ "$status" -eq 0 ]
