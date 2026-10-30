@@ -354,6 +354,13 @@ run_signed_files_release() {
   [ "$(published)" = 'mostrod-x86_64-unknown-linux-musl' ]
 }
 
+@test 'nunchuk android' {
+  run_release nunchuk_android android.2.9.3 SHA256SUMS.asc SHA256SUMS.asc \
+    2.9.3.apk SHA256SUMS
+  [ "$status" -eq 0 ]
+  [ "$(published)" = '2.9.3.apk' ]
+}
+
 @test 'phoenix' {
   run_release phoenix android-v2.8.4 SHA256SUMS.asc SHA256SUMS.asc \
     phoenix-120-2.8.4-mainnet.apk
