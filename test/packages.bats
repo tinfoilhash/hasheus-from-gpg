@@ -146,6 +146,12 @@ run_signed_files_release() {
   [ "$(published)" = 'BitBox-4.52.0-android.apk' ]
 }
 
+@test 'bitbanana' {
+  run_signed_files_release bitbanana v1.1.0 .asc bitbanana-1.1.0-release.apk
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'bitbanana-1.1.0-release.apk' ]
+}
+
 @test 'bitcoin keeper' {
   run_release bitcoin_keeper v2.6.3 SHA256SUM.asc SHA256SUM.asc \
     Bitcoin_Keeper_v2.6.3.apk SHA256SUM KEEPER_DETACHED_SIGN.sign
