@@ -201,6 +201,13 @@ run_signed_files_release() {
   [ "$(published)" = 'btcd-linux-amd64-v0.26.2.tar.gz' ]
 }
 
+@test 'btcpay server vault' {
+  run_release btcpay_server_vault Vault/v3.0.1 SHA256SUMS.asc SHA256SUMS.asc \
+    BTCPayServerVault-3.0.1.deb
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'BTCPayServerVault-3.0.1.deb' ]
+}
+
 @test 'chantools' {
   run_release chantools v0.14.3 manifest-v0.14.3.txt manifest-v0.14.3.sig \
     chantools-linux-amd64-v0.14.3.tar.gz
