@@ -360,6 +360,13 @@ run_signed_files_release() {
   [ "$(published)" = 'mostrod-x86_64-unknown-linux-musl' ]
 }
 
+@test 'nix-bitcoin' {
+  run_release nix_bitcoin v0.0.139 SHA256SUMS.txt SHA256SUMS.txt.asc \
+    nix-bitcoin-0.0.139.tar.gz nar-hash.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'nix-bitcoin-0.0.139.tar.gz' ]
+}
+
 @test 'nunchuk android' {
   run_release nunchuk_android android.2.9.3 SHA256SUMS.asc SHA256SUMS.asc \
     2.9.3.apk SHA256SUMS
