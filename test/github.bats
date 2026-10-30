@@ -376,7 +376,7 @@ EOF
   run_package recent-no-signature
 
   [ "$status" -eq 0 ]
-  [[ "$output" == *'file does not exist, but the release is recent'* ]]
+  [[ "$output" == *'gpg signatures file does not exist, but'* ]]
   [ -z "$(published)" ]
   [ -z "$(state_of test)" ]
 }
