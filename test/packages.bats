@@ -381,6 +381,13 @@ run_signed_files_release() {
   [ "$(published)" = 'nunchuk-linux-v2.9.2-x86_64.AppImage' ]
 }
 
+@test 'passport' {
+  run_signed_files_release passport v2.3.11 .sig v2.3.11-passport.bin \
+    v2.3.11-sha256
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'v2.3.11-passport.bin' ]
+}
+
 @test 'peach' {
   run_release peach 'v0.69.0(397)' manifest-peach-0.69.0-397.txt \
     manifest-peach-0.69.0-397.sig app-prod-universal-release.apk \
