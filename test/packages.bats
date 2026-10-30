@@ -254,6 +254,13 @@ run_signed_files_release() {
   [ "$(published)" = 'hwi-3.2.0-linux-x86_64.tar.gz' ]
 }
 
+@test 'keychat' {
+  run_signed_files_release keychat v1.41.1+6513 .asc \
+    Keychat-1.41.1+6513-linux-amd64.deb Keychat-1.41.1+6513-macos-arm64.dmg
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'Keychat-1.41.1+6513-linux-amd64.deb' ]
+}
+
 @test 'krux' {
   run_release krux v26.09.0 SHA256SUMS SHA256SUMS.asc krux-v26.09.0.zip \
     SHA256SUMS.sig
