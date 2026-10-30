@@ -38,6 +38,19 @@ download_asset() {
   download_file "$url" "$filename"
 }
 
+# prints "<url>,<content type>,<size>" for the release asset with the file
+# name, or nothing if there isn't one.
+asset_details() {
+  local release_assets="$1"
+  local filename="$2"
+
+  jaq -r --arg filename "$filename" '
+    .assets[]
+    | select(.name == $filename)
+    | "\(.url),\(.contentType),\(.size)"
+  ' <<< "$release_assets"
+}
+
 verify_from_github() {
   local package_name="$1"
   local repo="$2"
@@ -232,11 +245,17 @@ verify_manifest_release() {
     fi
 
     local release_asset
-    release_asset=$(jaq -r --arg filename "$filename" '
-      .assets[]
-      | select(.name == $filename)
-      | "\(.url),\(.contentType),\(.size)"
-    ' <<< "$release_assets") || exit 1
+    release_asset=$(asset_details "$release_assets" "$filename") || exit 1
+
+    # some manifests, like mostro's, list each file under the directory it was
+    # built in.
+    if [ -z "$release_asset" ] && [[ "$filename" == */* ]]; then
+      local hash
+      read -r hash _ <<< "$shasum_line"
+      filename="${filename##*/}"
+      shasum_line="$hash  $filename"
+      release_asset=$(asset_details "$release_assets" "$filename") || exit 1
+    fi
 
     # manifests can also list files that aren't release assets, like the
     # binaries inside lnd's archives.

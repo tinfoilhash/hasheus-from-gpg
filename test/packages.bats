@@ -40,6 +40,11 @@ run_release() {
   shasum -a 256 "$asset" > "$BATS_TEST_TMPDIR/hashes"
 
   # some projects, like amber, put one space between the hash and the name.
+  # some, like mostro, list each file under the directory it was built in.
+  if [ -n "${NESTED_MANIFEST:-}" ]; then
+    sed -i.bak "s|  |  artifact-$asset/|" "$BATS_TEST_TMPDIR/hashes"
+  fi
+
   if [ -n "${ONE_SPACE_MANIFEST:-}" ]; then
     sed -i.bak 's/  / /' "$BATS_TEST_TMPDIR/hashes"
   fi
@@ -312,6 +317,13 @@ run_signed_files_release() {
     manifest-v0.35.0-beta.txt.sig loop-linux-amd64-v0.35.0-beta.tar.gz
   [ "$status" -eq 0 ]
   [ "$(published)" = 'loop-linux-amd64-v0.35.0-beta.tar.gz' ]
+}
+
+@test 'mostro' {
+  NESTED_MANIFEST=1 run_release mostro v0.20.2 manifest.txt \
+    manifest.txt.sig.negrunch mostrod-x86_64-unknown-linux-musl
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'mostrod-x86_64-unknown-linux-musl' ]
 }
 
 @test 'phoenix' {
