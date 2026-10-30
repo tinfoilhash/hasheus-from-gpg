@@ -187,6 +187,20 @@ run_signed_files_release() {
   [ "$(published)" = 'BlueWallet-8.0.2.apk' ]
 }
 
+@test 'btcd' {
+  run_release btcd v0.27.0 manifest-v0.27.0.txt manifest-v0.27.0.txt.sig \
+    btcd-linux-amd64-v0.27.0.tar.gz
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'btcd-linux-amd64-v0.27.0.tar.gz' ]
+}
+
+@test 'btcd with a signature named after its signer' {
+  run_release btcd v0.26.2 manifest-v0.26.2.txt manifest-roasbeef-v0.26.2.sig \
+    btcd-linux-amd64-v0.26.2.tar.gz
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'btcd-linux-amd64-v0.26.2.tar.gz' ]
+}
+
 @test 'chantools' {
   run_release chantools v0.14.3 manifest-v0.14.3.txt manifest-v0.14.3.sig \
     chantools-linux-amd64-v0.14.3.tar.gz
