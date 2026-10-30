@@ -130,6 +130,22 @@ setup_file() {
   rm "$root/no-signature/github.example/v1/"*.sig
   write_releases "$root/no-signature/github.example" v1=2026-01-01T00:00:00Z
 
+  # a release published within the upload window with only a binary uploaded so
+  # far, after an older one, and a recent one with hashes but no signature.
+  local recent
+  recent=$(jaq -rn 'now | floor | todate')
+
+  make_release_with_clearsigned_manifest "$root/recent/github.example" v1
+  mkdir -p "$root/recent/github.example/v2"
+  echo 'app v2' > "$root/recent/github.example/v2/app-v2.zip"
+  write_releases "$root/recent/github.example" v1=2026-01-01T00:00:00Z \
+    "v2=$recent"
+
+  make_release_with_signature_per_signer \
+    "$root/recent-no-signature/github.example" v1
+  rm "$root/recent-no-signature/github.example/v1/"*.sig
+  write_releases "$root/recent-no-signature/github.example" "v1=$recent"
+
   make_release_with_clearsigned_manifest "$root/tampered/github.example" v1
   echo 'changed' >> "$root/tampered/github.example/v1/app-v1.zip"
   write_releases "$root/tampered/github.example" v1=2026-01-01T00:00:00Z
@@ -342,6 +358,29 @@ EOF
   [ "$(state_of test)" = '2026-01-01T00:00:00Z' ]
 }
 
+@test 'does not record a recent release with no hashes file yet' {
+  write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
+
+  run_package recent
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'hashes file does not exist, but the release is recent'* ]]
+  [ "$(published)" = 'app-v1.zip' ]
+  [ "$(state_of test)" = '2026-01-01T00:00:00Z' ]
+  [ -z "$(leftover_files test)" ]
+}
+
+@test 'does not record a recent release with no signature file yet' {
+  write_package 'manifest-{{NAME}}.txt' 'manifest-*-{{NAME}}.sig' < /dev/null
+
+  run_package recent-no-signature
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'file does not exist, but the release is recent'* ]]
+  [ -z "$(published)" ]
+  [ -z "$(state_of test)" ]
+}
+
 @test 'skips a file that fails its hash check, records, and exits 1' {
   write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
 
@@ -504,6 +543,18 @@ EOF
 
   [ "$status" -eq 0 ]
   [[ "$output" == *'signed files do not exist, skipping'* ]]
+  [ -z "$(published)" ]
+  [ "$(state_of test)" = '2026-01-01T00:00:00Z' ]
+}
+
+@test 'does not record a recent release with no signed files yet' {
+  write_signed_files_package
+
+  run_package recent
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'signed files do not exist, skipping'* ]]
+  [[ "$output" == *'signed files do not exist, but the release is recent'* ]]
   [ -z "$(published)" ]
   [ "$(state_of test)" = '2026-01-01T00:00:00Z' ]
 }
