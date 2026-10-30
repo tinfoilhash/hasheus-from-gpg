@@ -374,6 +374,13 @@ run_signed_files_release() {
   [ "$(published)" = '2.9.3.apk' ]
 }
 
+@test 'nunchuk desktop' {
+  run_release nunchuk_desktop 2.9.2 SHA256SUMS SHA256SUMS.asc \
+    nunchuk-linux-v2.9.2-x86_64.AppImage
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'nunchuk-linux-v2.9.2-x86_64.AppImage' ]
+}
+
 @test 'peach' {
   run_release peach 'v0.69.0(397)' manifest-peach-0.69.0-397.txt \
     manifest-peach-0.69.0-397.sig app-prod-universal-release.apk \
