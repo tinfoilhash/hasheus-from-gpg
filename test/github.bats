@@ -50,6 +50,21 @@ make_release_with_versioned_manifest() {
     "liana-$version-shasums.txt" "liana-$version-shasums.txt.asc"
 }
 
+# writes a release whose manifest lists each file under the directory it was
+# built in, like mostro.
+make_release_with_nested_manifest() {
+  local release_dir="$1/$2"
+  local tag="$2"
+
+  mkdir -p "$release_dir/build"
+  cd "$release_dir" || exit 1
+  echo "app $tag" > "build/app-$tag"
+  shasum -a 256 "build/app-$tag" > manifest.txt
+  mv "build/app-$tag" .
+  rmdir build
+  sign_detached signer manifest.txt manifest.txt.sig
+}
+
 # writes a release that signs each file instead of a manifest, like trezor
 # suite, with an unsigned file and a key attached as <id>.asc, like bisq's.
 make_release_with_signed_files() {
@@ -118,6 +133,14 @@ setup_file() {
   make_release_with_clearsigned_manifest "$root/tampered/github.example" v1
   echo 'changed' >> "$root/tampered/github.example/v1/app-v1.zip"
   write_releases "$root/tampered/github.example" v1=2026-01-01T00:00:00Z
+
+  make_release_with_nested_manifest "$root/nested/github.example" v1
+  write_releases "$root/nested/github.example" v1=2026-01-01T00:00:00Z
+
+  make_release_with_nested_manifest "$root/nested-tampered/github.example" v1
+  echo 'changed' >> "$root/nested-tampered/github.example/v1/app-v1"
+  write_releases "$root/nested-tampered/github.example" \
+    v1=2026-01-01T00:00:00Z
 
   make_release_with_signed_files "$root/signed-files/github.example" v1
   make_release_with_signed_files "$root/signed-files/github.example" v2
@@ -227,6 +250,25 @@ run_package() {
 
   [ "$status" -eq 0 ]
   [ "$(grep -c 'file is not a release asset, skipping' <<< "$output")" -eq 2 ]
+}
+
+@test 'publishes nested manifest entries by their file name' {
+  write_package 'manifest.txt' 'manifest.txt.sig' < /dev/null
+
+  run_package nested
+
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'app-v1' ]
+}
+
+@test 'skips a nested manifest entry that fails its hash check' {
+  write_package 'manifest.txt' 'manifest.txt.sig' < /dev/null
+
+  run_package nested-tampered
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'skipped files that failed verification (app-v1)'* ]]
+  [ -z "$(published)" ]
 }
 
 @test 'downloads only hashes, signatures, and files not published yet' {
