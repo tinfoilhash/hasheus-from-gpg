@@ -1,6 +1,10 @@
 # shellcheck shell=bash
 source "${BASH_SOURCE%/*}/common.sh"
 
+# a release can be published before its files are uploaded, so one missing them
+# is tried again on the next run for this long instead of being recorded.
+release_upload_window_seconds=$((60 * 60 * 24))
+
 resolve_filename_pattern() {
   local pattern="$1"
   local name="$2"
@@ -86,7 +90,7 @@ verify_signed_files_from_github() {
 }
 
 # calls the given function for each release published since the last run,
-# oldest first, with the release's name, assets (as gh's json), and asset
+# oldest first, with the release's name, date, assets (as gh's json), and asset
 # names, plus any further arguments. the release is recorded once it returns.
 verify_new_releases() {
   local package_name="$1"
@@ -142,19 +146,43 @@ verify_new_releases() {
 
     # the function exits on any failure, but a return that isn't 0 still stops
     # the release from being recorded.
-    "$verify_release" "$name" "$release_assets" "$asset_names" "$@" || exit 1
+    "$verify_release" "$name" "$published_at" "$release_assets" \
+      "$asset_names" "$@" || exit 1
 
     complete_release "$package_name" "$published_at"
   done 3<<< "$new_releases"
 }
 
+is_recent_release() {
+  local published_at="$1"
+
+  jaq -en --arg published_at "$published_at" \
+    --argjson window "$release_upload_window_seconds" \
+    '($published_at | fromdate) > now - $window' > /dev/null
+}
+
+# a recent release stops the run without being recorded (but without failing),
+# since its files may still be uploading. an older one is skipped.
+skip_release_without_files() {
+  local published_at="$1"
+  local reason="$2"
+
+  if is_recent_release "$published_at"; then
+    echo "$reason, but the release is recent, so waiting for the next run"
+    exit 0
+  fi
+
+  echo "$reason, skipping"
+}
+
 verify_manifest_release() {
   local name="$1"
-  local release_assets="$2"
-  local asset_names="$3"
-  local shasum_filename_pattern="$4"
-  local shasum_signature_filename_pattern="$5"
-  shift 5
+  local published_at="$2"
+  local release_assets="$3"
+  local asset_names="$4"
+  local shasum_filename_pattern="$5"
+  local shasum_signature_filename_pattern="$6"
+  shift 6
   local key_fingerprints=("$@")
 
   echo '------- downloading hashes and gpg signatures'
@@ -171,7 +199,7 @@ verify_manifest_release() {
   )
 
   if [ -z "$shasum_filename" ]; then
-    echo 'hashes file does not exist, skipping'
+    skip_release_without_files "$published_at" 'hashes file does not exist'
     return
   fi
 
@@ -183,7 +211,8 @@ verify_manifest_release() {
   done < <(matching_asset_names "$shasum_signature_pattern" "$asset_names")
 
   if [ "${#shasum_signature_filenames[@]}" -eq 0 ]; then
-    echo 'gpg signatures file does not exist, skipping'
+    skip_release_without_files "$published_at" \
+      'gpg signatures file does not exist'
     return
   fi
 
@@ -273,17 +302,18 @@ verify_manifest_release() {
 
 verify_signed_files_release() {
   local name="$1"
-  local release_assets="$2"
-  local asset_names="$3"
-  local signature_suffix="$4"
-  shift 4
+  local published_at="$2"
+  local release_assets="$3"
+  local asset_names="$4"
+  local signature_suffix="$5"
+  shift 5
   local key_fingerprints=("$@")
 
   local signed_asset_names
   signed_asset_names=$(signed_filenames "$asset_names" "$signature_suffix")
 
   if [ -z "$signed_asset_names" ]; then
-    echo 'signed files do not exist, skipping'
+    skip_release_without_files "$published_at" 'signed files do not exist'
     return
   fi
 
