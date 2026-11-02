@@ -34,6 +34,7 @@ key_fingerprints=(
   '55058E8947E136A64F9E8AD5C4512A878E4AC2BF' # https://raw.githubusercontent.com/bitcoinknots/guix.sigs/knots/builder-keys/nsvrn.gpg
   'ED9BDF7AD6A55E232E84524257FF9BDBCC301009' # https://raw.githubusercontent.com/bitcoinknots/guix.sigs/knots/builder-keys/Sjors.gpg
   '497B8E6D05A2B91314EA2312592422BAE851B957' # https://raw.githubusercontent.com/bitcoinknots/guix.sigs/knots/builder-keys/KC.gpg
+  '818166B665A104E48C270C52FF4CD191CCFBAA88' # https://raw.githubusercontent.com/bitcoinknots/guix.sigs/knots/builder-keys/LionThunderFingers.gpg
 )
 shasum_filename_pattern='SHA256SUMS'
 shasum_signature_filename_pattern="$shasum_filename_pattern.asc"
