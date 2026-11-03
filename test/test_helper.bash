@@ -105,8 +105,9 @@ create_repo() {
 
   export PATH="$PROJECT_DIR/test/fakes:$PATH"
   export XDG_CONFIG_HOME="$BATS_TEST_TMPDIR/config"
-  export NSEC='nsec-fake'
-  export FAKE_NAK_LOG="$BATS_TEST_TMPDIR/published"
+  export HASHEUS_PUBLIC_KEY='npub1fake'
+  export HASHEUS_SECRET_KEY='nsec1fake'
+  export FAKE_HASHEUS_LOG="$BATS_TEST_TMPDIR/published"
 }
 
 # replaces a package script's key fingerprints with the given ones.
@@ -151,7 +152,7 @@ state_of() {
 # sorted bytewise, so mixed-case names (like electrum's) sort the same in any
 # locale.
 published() {
-  cut -d ' ' -f 2 "$FAKE_NAK_LOG" 2> /dev/null \
+  cut -d ' ' -f 2 "$FAKE_HASHEUS_LOG" 2> /dev/null \
     | LC_ALL=C sort | tr '\n' ' ' | sed 's/ $//'
 }
 

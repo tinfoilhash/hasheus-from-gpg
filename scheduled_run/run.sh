@@ -116,9 +116,9 @@ timeout_program='
   exit($? & 127 ? 128 + ($? & 127) : $? >> 8);
 '
 
-# runs AI_COMMAND (split on spaces) with the prompt appended, without the nsec,
-# and with DRY_RUN and the npub, so the package scripts it runs are dry runs. it
-# runs as this user, so this guards against mistakes, not a determined ai.
+# runs AI_COMMAND (split on spaces) with the prompt appended, without the secret
+# key and with DRY_RUN, so the package scripts it runs are dry runs. it runs as
+# this user, so this guards against mistakes, not a determined ai.
 run_ai() {
   local prompt="follow scheduled_run/instructions.md in this repo for the \
 scheduled run in $run_dir, whose issue is \"$issue_title\" in $github_repo. \
@@ -127,10 +127,7 @@ you act as the github user $github_user."
   local command
   read -r -a command <<< "$ai_command"
 
-  local npub
-  npub=$(nak encode npub "$(nak key public "$NSEC" < /dev/null)" < /dev/null)
-
-  env -u NSEC DRY_RUN=1 NPUB="$npub" perl -e "$timeout_program" \
+  env -u HASHEUS_SECRET_KEY DRY_RUN=1 perl -e "$timeout_program" \
     "$ai_timeout_seconds" "${command[@]}" "$prompt" \
     < /dev/null > "$run_dir/ai.log" 2>&1
 }
@@ -183,12 +180,15 @@ open_plain_issue() {
 main() {
   check_clone
 
-  # launchd runs this in a login shell, so the nsec comes from the shell's
+  # launchd runs this in a login shell, so the keys come from the shell's
   # startup files.
-  if [ -z "${NSEC:-}" ]; then
-    echo '$NSEC not set, exiting'
-    exit 1
-  fi
+  local variable
+  for variable in HASHEUS_PUBLIC_KEY HASHEUS_SECRET_KEY; do
+    if [ -z "${!variable:-}" ]; then
+      echo "\$$variable not set, exiting"
+      exit 1
+    fi
+  done
 
   if [[ ! "$ai_timeout_seconds" =~ ^[1-9][0-9]*$ ]]; then
     echo "AI_TIMEOUT_SECONDS must be a whole number of seconds, exiting"

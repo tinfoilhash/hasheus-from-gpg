@@ -1,6 +1,5 @@
 # shellcheck shell=bash
 config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/hasheus-from-gpg"
-relay='wss://relay.hasheus.com'
 
 # any value but 0 means a dry run, so a value like `DRY_RUN=true` can't publish
 # for real.
@@ -14,9 +13,9 @@ check_dependencies() {
     'file'
     'gh'
     'gpg'
+    'hasheus'
     'hq'
     'jaq'
-    'nak'
     'shasum'
     'xmllint'
   )
@@ -33,24 +32,16 @@ check_dependencies() {
     echo '--- dry run: nothing will be published or recorded'
   fi
 
-  # a dry run only reads from the relay, so it can take the npub instead of the
-  # nsec. the nsec wins when both are set, so a dry run checks the same key a
-  # real run would publish with.
-  local key_variable='$NSEC'
-
-  if [ -n "${NSEC:-}" ]; then
-    npub_hex=$(nak key public "$NSEC" < /dev/null 2> /dev/null)
-  elif is_dry_run && [ -n "${NPUB:-}" ]; then
-    key_variable='$NPUB'
-    npub_hex=$(nak decode "$NPUB" < /dev/null 2> /dev/null)
-  else
-    echo '$NSEC not set, exiting'
+  # hasheus checks the keys when it first uses them. the public key is the one
+  # already published files are looked up by, and a dry run only reads, so it
+  # doesn't need the secret key.
+  if [ -z "${HASHEUS_PUBLIC_KEY:-}" ]; then
+    echo '$HASHEUS_PUBLIC_KEY not set, exiting'
     exit 1
   fi
 
-  # nak exits 0 for an invalid key, so check its output instead.
-  if [[ ! "$npub_hex" =~ ^[0-9a-f]{64}$ ]]; then
-    echo "$key_variable is invalid, exiting"
+  if ! is_dry_run && [ -z "${HASHEUS_SECRET_KEY:-}" ]; then
+    echo '$HASHEUS_SECRET_KEY not set, exiting'
     exit 1
   fi
 }
@@ -179,6 +170,35 @@ was_key_unexpired_at() {
     '
 }
 
+# hasheus prints an error as json, with a code to branch on.
+hasheus_error_code() {
+  local output="$1"
+
+  jaq -r '.error.code // empty' <<< "$output" 2> /dev/null
+}
+
+print_hasheus_error() {
+  local output="$1"
+
+  local message
+  message=$(jaq -r '.error.message // empty' <<< "$output" 2> /dev/null)
+  echo "hasheus failed: ${message:-no error printed}, exiting"
+}
+
+# a relay can be unreachable, or reject an event for a while (like when rate
+# limiting), so those are worth retrying. anything else, like an invalid key,
+# won't fix itself.
+is_transient_hasheus_error() {
+  local output="$1"
+
+  case "$(hasheus_error_code "$output")" in
+    file_relays_unreachable | user_relays_unreachable | publish_rejected)
+      return 0
+      ;;
+    *) return 1 ;;
+  esac
+}
+
 is_published_to_verify() {
   local hash="$1"
 
@@ -188,10 +208,14 @@ is_published_to_verify() {
   for attempt in 1 2 3; do
     local output
 
-    if output=$(nak req -q -k 1063 -a "$npub_hex" -t x="$hash" "$relay" \
-      < /dev/null 2>&1); then
-      grep -v "filter does not match" <<< "$output" | grep -Fq "$hash"
+    if output=$(hasheus verify "$hash" --json < /dev/null); then
+      [ "$(jaq -r '.verification.status' <<< "$output")" = verified_by_you ]
       return
+    fi
+
+    if ! is_transient_hasheus_error "$output"; then
+      print_hasheus_error "$output"
+      exit 1
     fi
 
     echo "relay query failed (attempt $attempt of 3)"
@@ -203,35 +227,51 @@ is_published_to_verify() {
 }
 
 publish_to_verify() {
-  local filename="$1"
-  local hash="$2"
+  local hash="$1"
+  local filename="$2"
   local url="$3"
   local content_type="$4"
-  local size="$5"
 
   if is_dry_run; then
     echo "dry run: would publish $filename"
     return
   fi
 
-  # a publish can fail to reach the relay too, so retry. after each failure,
-  # check that it didn't land anyway, so the event isn't published twice.
+  # a publish can fail to reach the relay too, so retry. hasheus checks that it
+  # didn't land anyway before each one, so the event isn't published twice. it
+  # also fails after publishing if it can't show the result, which a retry
+  # catches the same way, and so does a last check after the last attempt.
   local attempt
   for attempt in 1 2 3; do
-    if nak event -k 1063 -c "$filename" \
-      -t x="$hash" -t url="$url" -t m="$content_type" -t size="$size" \
-      --sec "$NSEC" "$relay" < /dev/null; then
+    local output
+
+    # the `=` and `--` keep a file name that starts with `-` from reading as
+    # an option.
+    if output=$(hasheus publish --url "$url" --description="$filename" \
+      --mime-type "$content_type" --yes --json -- "$filename" \
+      < /dev/null); then
+      echo 'published'
       return
+    fi
+
+    if [ "$(hasheus_error_code "$output")" = already_verified ]; then
+      echo 'event was published after all'
+      return
+    fi
+
+    if ! is_transient_hasheus_error "$output"; then
+      print_hasheus_error "$output"
+      return 1
     fi
 
     echo "publish failed (attempt $attempt of 3)"
     sleep "$attempt"
-
-    if is_published_to_verify "$hash"; then
-      echo 'event was published after all'
-      return
-    fi
   done
+
+  if is_published_to_verify "$hash"; then
+    echo 'event was published after all'
+    return
+  fi
 
   echo 'publish failed, exiting'
   return 1
@@ -251,12 +291,11 @@ manifest_filename() {
 
 # publishes the file on a verified manifest line: skips it if it's already
 # published, otherwise downloads it, checks it against the line, and publishes
-# it. the content type and size default to the downloaded file's.
+# it. the content type defaults to the downloaded file's.
 publish_file() {
   local shasum_line="$1"
   local url="$2"
   local content_type="${3:-}"
-  local size="${4:-}"
 
   local hash filename_shasum
   read -r hash filename_shasum <<< "$shasum_line"
@@ -284,15 +323,10 @@ publish_file() {
     content_type=$(file --mime-type -b "$filename")
   fi
 
-  if [ -z "$size" ]; then
-    size=$(wc -c < "$filename" | tr -d ' ')
-  fi
-
   echo "filename: $filename"
   echo "hash: $hash"
   echo "url: $url"
   echo "content type: $content_type"
-  echo "size: $size"
 
   if shasum --check --status <<< "$check_line"; then
     echo 'verified: yes'
@@ -304,7 +338,7 @@ publish_file() {
 
   echo '------- publishing event'
 
-  publish_to_verify "$filename" "$hash" "$url" "$content_type" "$size" || exit 1
+  publish_to_verify "$hash" "$filename" "$url" "$content_type" || exit 1
 }
 
 # prints each file name that has a signature among the names, as
@@ -326,16 +360,15 @@ signed_filenames() {
 # like `publish_file`, but checks the file against its own signature. a known
 # digest (like github's) is used only to skip a file that's already published
 # without downloading it: what's published is the downloaded file's hash, once
-# its signature verifies. the content type and size default to the downloaded
+# its signature verifies. the content type defaults to the downloaded
 # file's.
 publish_signed_file() {
   local filename="$1"
   local url="$2"
   local signature_url="$3"
   local content_type="${4:-}"
-  local size="${5:-}"
-  local digest="${6:-}"
-  shift 6
+  local digest="${5:-}"
+  shift 5
   local key_fingerprints=("$@")
 
   local digest_hash="${digest#sha256:}"
@@ -368,15 +401,10 @@ publish_signed_file() {
     content_type=$(file --mime-type -b "$filename")
   fi
 
-  if [ -z "$size" ]; then
-    size=$(wc -c < "$filename" | tr -d ' ')
-  fi
-
   echo "filename: $filename"
   echo "hash: $hash"
   echo "url: $url"
   echo "content type: $content_type"
-  echo "size: $size"
 
   if verify_gpg_signature "$signature_filename" "$filename" \
     "${key_fingerprints[@]}"; then
@@ -398,7 +426,7 @@ publish_signed_file() {
 
   echo '------- publishing event'
 
-  publish_to_verify "$filename" "$hash" "$url" "$content_type" "$size" || exit 1
+  publish_to_verify "$hash" "$filename" "$url" "$content_type" || exit 1
 }
 
 # whether gpg finds a signature that doesn't match the data, so the file isn't

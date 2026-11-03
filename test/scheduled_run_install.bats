@@ -32,9 +32,10 @@ setup() {
   export PATH="$PROJECT_DIR/test/fakes:$PATH"
   export FAKE_LAUNCHCTL_LOG="$BATS_TEST_TMPDIR/launchctl.log"
   unset SCHEDULED_RUN_CLONE_DIR SCHEDULED_RUN_LOG_DIR SCHEDULED_RUN_HOURS \
-    SCHEDULED_RUN_WEEKDAYS NSEC
+    SCHEDULED_RUN_WEEKDAYS HASHEUS_PUBLIC_KEY HASHEUS_SECRET_KEY
   mkdir -p "$HOME"
-  echo 'export NSEC=nsec-fake' > "$HOME/.bash_profile"
+  printf '%s\n' 'export HASHEUS_PUBLIC_KEY=npub1fake' \
+    'export HASHEUS_SECRET_KEY=nsec1fake' > "$HOME/.bash_profile"
 
   clone_dir="$HOME/Library/Application Support/hasheus-from-gpg/repo"
   plist="$HOME/Library/LaunchAgents/$label.plist"
@@ -154,13 +155,14 @@ schedule_of() {
   [[ "$output" != *'installed'* ]]
 }
 
-@test 'warns about NSEC set only in the shell running the install' {
+@test 'warns about keys set only in the shell running the install' {
   rm "$HOME/.bash_profile"
 
-  NSEC=nsec-fake run_install
+  HASHEUS_PUBLIC_KEY=npub1fake HASHEUS_SECRET_KEY=nsec1fake run_install
 
   [ "$status" -eq 0 ]
-  [[ "$output" == *"warning: NSEC isn't set"* ]]
+  [[ "$output" == *"warning: HASHEUS_PUBLIC_KEY isn't set"* ]]
+  [[ "$output" == *"warning: HASHEUS_SECRET_KEY isn't set"* ]]
 }
 
 @test 'loads the job, reloading it on a reinstall' {
@@ -183,16 +185,17 @@ schedule_of() {
   [ ! -f "$plist" ]
 }
 
-@test 'warns when the login shell does not set NSEC' {
-  rm "$HOME/.bash_profile"
+@test 'warns when the login shell does not set a key' {
+  echo 'export HASHEUS_PUBLIC_KEY=npub1fake' > "$HOME/.bash_profile"
 
   run_install
 
   [ "$status" -eq 0 ]
-  [[ "$output" == *"warning: NSEC isn't set"* ]]
+  [[ "$output" != *"warning: HASHEUS_PUBLIC_KEY isn't set"* ]]
+  [[ "$output" == *"warning: HASHEUS_SECRET_KEY isn't set"* ]]
 }
 
-@test 'does not warn when the login shell sets NSEC' {
+@test 'does not warn when the login shell sets both keys' {
   run_install
 
   [ "$status" -eq 0 ]

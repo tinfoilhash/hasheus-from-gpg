@@ -130,13 +130,16 @@ write_plist() {
 }
 
 # the job only sees what the login shell's startup files set, so check without
-# this shell's NSEC.
+# this shell's keys.
 check_login_shell() {
-  if ! env -u NSEC "$SHELL" -l -c '[ -n "${NSEC:-}" ]' < /dev/null \
-    > /dev/null 2>&1; then
-    echo "warning: NSEC isn't set in $SHELL's login startup files, so the run"
-    echo 'will exit until it is (see the readme)'
-  fi
+  local variable
+  for variable in HASHEUS_PUBLIC_KEY HASHEUS_SECRET_KEY; do
+    if ! env -u HASHEUS_PUBLIC_KEY -u HASHEUS_SECRET_KEY "$SHELL" -l \
+      -c "[ -n \"\${$variable:-}\" ]" < /dev/null > /dev/null 2>&1; then
+      echo "warning: $variable isn't set in $SHELL's login startup files, so"
+      echo 'the run will exit until it is (see the readme)'
+    fi
+  done
 }
 
 install() {

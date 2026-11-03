@@ -8,7 +8,8 @@
 
 {
   echo "args: $*"
-  echo "env: NSEC=${NSEC:-unset} DRY_RUN=${DRY_RUN:-unset} NPUB=${NPUB:-unset}"
+  echo "env: HASHEUS_SECRET_KEY=${HASHEUS_SECRET_KEY:-unset}" \
+    "DRY_RUN=${DRY_RUN:-unset} HASHEUS_PUBLIC_KEY=${HASHEUS_PUBLIC_KEY:-unset}"
 } >> "$FAKE_AI_LOG"
 
 if [ -n "${FAKE_AI_TAMPER:-}" ]; then

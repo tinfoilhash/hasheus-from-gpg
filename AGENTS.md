@@ -4,7 +4,7 @@ notes for coding agents working in this repo. the [readme](README.md) covers set
 
 ## what it does
 
-each package script checks a project's new releases: it downloads the release's hash manifest and gpg signatures, verifies the signatures against the package's listed keys, then downloads each file, checks its hash, and publishes a nip-94 (kind 1063) event for it to the relay. projects that sign each file instead of a manifest have each file checked against its own signature. the last release checked is recorded so the next run starts after it.
+each package script checks a project's new releases: it downloads the release's hash manifest and gpg signatures, verifies the signatures against the package's listed keys, then downloads each file, checks its hash, and publishes a nip-94 (kind 1063) event for it to the relay with [hasheus](https://github.com/tinfoilhash/hasheus-cli). projects that sign each file instead of a manifest have each file checked against its own signature. the last release checked is recorded so the next run starts after it.
 
 ## layout
 
@@ -13,16 +13,16 @@ each package script checks a project's new releases: it downloads the release's 
 - `packages/<name>/verify.sh`: one script per package. most are a few lines of config for one of the github flows; bitcoin core, coldcard, and electrum have their own flows. electrum reuses `publish_signed_file` from the per-file github flow.
 - `verify_all.sh`: runs every package script.
 - `check_keys.sh`: audits the listed keys, and imports them with `--import`.
-- `test/`: the [bats](https://github.com/bats-core/bats-core) suite, with fake `gh`, `nak`, `curl`, `launchctl`, and `ai` in `test/fakes`.
+- `test/`: the [bats](https://github.com/bats-core/bats-core) suite, with fake `gh`, `hasheus`, `curl`, `launchctl`, and `ai` in `test/fakes`.
 - `.github/workflows/test.yml`: lint and tests on macos and ubuntu.
 - `scheduled_run/run.sh` and `scheduled_run/instructions.md`: a run on a schedule on a mac, and the instructions for its ai step. `scheduled_run/install.sh` sets it up (and removes it with `--uninstall`) from the launchd template, `scheduled_run/launchd.plist`, and `scheduled_run/README.md` documents it.
 
 ## running scripts
 
-- a real run publishes events to the relay under the nsec's identity, so don't run one unless asked. check changes with a dry run instead, which publishes and records nothing:
+- a real run publishes events to the relay under the identity of `HASHEUS_SECRET_KEY`, so don't run one unless asked. check changes with a dry run instead, which publishes and records nothing:
 
   ```bash
-  DRY_RUN=1 NPUB={{npub...}} ./packages/{{name}}/verify.sh
+  DRY_RUN=1 HASHEUS_PUBLIC_KEY={{npub...}} ./packages/{{name}}/verify.sh
   ```
 
 - point `XDG_CONFIG_HOME` at a temp directory to check from an empty state (the last 3 releases) without touching the real state in `~/.config/hasheus-from-gpg`.

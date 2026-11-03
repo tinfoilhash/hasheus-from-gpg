@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+
+# records published events in $FAKE_HASHEUS_LOG ("<hash> <filename> <mime
+# type>" per line) and answers verifies from it, printing json like hasheus
+# --json. verifies fail like an unreachable relay while
+# $FAKE_HASHEUS_VERIFY_FAILURES (a file holding a count) is above 0, and so do
+# publishes while $FAKE_HASHEUS_PUBLISH_FAILURES is. with
+# $FAKE_HASHEUS_PUBLISH_LANDS set, the last of those failed publishes still
+# reaches the relay, like a reply that timed out. publishing
+# $FAKE_HASHEUS_REJECT is always rejected by the relay. the file name has to
+# come after `--`.
+
+print_error() {
+  local code="$1"
+  local message="$2"
+
+  echo "{\"error\":{\"code\":\"$code\",\"message\":\"$message\"}}"
+  exit 1
+}
+
+# whether to fail this time, counting down the file holding the count.
+fails_once_more() {
+  local failures="$1"
+
+  [ -n "$failures" ] && [ "$(cat "$failures")" -gt 0 ] || return 1
+  echo $(($(cat "$failures") - 1)) > "$failures"
+}
+
+is_published() {
+  local hash="$1"
+
+  grep -q "^$hash " "$FAKE_HASHEUS_LOG" 2> /dev/null
+}
+
+print_verification() {
+  local hash="$1"
+  local status="$2"
+
+  echo "{\"verification\":{\"hash\":\"$hash\",\"status\":\"$status\"}}"
+}
+
+verify() {
+  local hash="$1"
+
+  case "${HASHEUS_PUBLIC_KEY:-}" in
+    npub1*) ;;
+    *) print_error invalid_user \
+      "HASHEUS_PUBLIC_KEY isn't a valid npub or hex public key" ;;
+  esac
+
+  if fails_once_more "${FAKE_HASHEUS_VERIFY_FAILURES:-}"; then
+    print_error file_relays_unreachable 'unable to connect to hasheus server'
+  fi
+
+  if is_published "$hash"; then
+    print_verification "$hash" verified_by_you
+  else
+    print_verification "$hash" unverified
+  fi
+}
+
+publish() {
+  local filename mime_type
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --mime-type) mime_type="$2" ;;
+      --) filename="$2" ;;
+    esac
+    shift
+  done
+
+  case "${HASHEUS_SECRET_KEY:-}" in
+    nsec1*) ;;
+    *) print_error invalid_secret_key \
+      "the secret key isn't a valid nsec or ncryptsec" ;;
+  esac
+
+  local hash
+  hash=$(shasum -a 256 -- "$filename") || exit 1
+  hash="${hash%% *}"
+
+  if is_published "$hash"; then
+    print_error already_verified "you've already verified this file"
+  fi
+
+  if [ "$filename" = "${FAKE_HASHEUS_REJECT:-}" ]; then
+    print_error publish_rejected \
+      'the hasheus server rejected the verification: blocked'
+  fi
+
+  if fails_once_more "${FAKE_HASHEUS_PUBLISH_FAILURES:-}"; then
+    if [ -n "${FAKE_HASHEUS_PUBLISH_LANDS:-}" ] \
+      && [ "$(cat "$FAKE_HASHEUS_PUBLISH_FAILURES")" -eq 0 ]; then
+      echo "$hash $filename $mime_type" >> "$FAKE_HASHEUS_LOG"
+    fi
+
+    print_error file_relays_unreachable 'unable to connect to hasheus server'
+  fi
+
+  echo "$hash $filename $mime_type" >> "$FAKE_HASHEUS_LOG"
+  print_verification "$hash" verified_by_you
+}
+
+case "$1" in
+  verify) verify "$2" ;;
+  publish) publish "${@:2}" ;;
+  *)
+    echo "fake hasheus: unexpected command: $*" >&2
+    exit 1
+    ;;
+esac

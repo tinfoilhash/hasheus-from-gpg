@@ -3,6 +3,6 @@
 source-path=SCRIPTDIR
 external-sources=true
 
-# single-quoted `$` is intentional: jaq programs and literal `$NSEC` in
-# messages.
+# single-quoted `$` is intentional: jaq programs and literal
+# `$HASHEUS_PUBLIC_KEY` in messages.
 disable=SC2016

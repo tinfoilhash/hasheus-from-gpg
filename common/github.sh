@@ -42,7 +42,7 @@ download_asset() {
   download_file "$url" "$filename"
 }
 
-# prints "<url>,<content type>,<size>" for the release asset with the file
+# prints "<url>,<content type>" for the release asset with the file
 # name, or nothing if there isn't one.
 asset_details() {
   local release_assets="$1"
@@ -51,7 +51,7 @@ asset_details() {
   jaq -r --arg filename "$filename" '
     .assets[]
     | select(.name == $filename)
-    | "\(.url),\(.contentType),\(.size)"
+    | "\(.url),\(.contentType)"
   ' <<< "$release_assets"
 }
 
@@ -293,10 +293,10 @@ verify_manifest_release() {
       continue
     fi
 
-    local url content_type size
-    IFS=',' read -r url content_type size <<< "$release_asset"
+    local url content_type
+    IFS=',' read -r url content_type <<< "$release_asset"
 
-    publish_file "$shasum_line" "$url" "$content_type" "$size"
+    publish_file "$shasum_line" "$url" "$content_type"
   done 4<<< "$shasum_manifest"
 }
 
@@ -329,14 +329,13 @@ verify_signed_files_release() {
       ) as $signature_url
       | .assets[]
       | select(.name == $filename)
-      | "\(.url),\($signature_url),\(.contentType),\(.size),\(.digest // "")"
+      | "\(.url),\($signature_url),\(.contentType),\(.digest // "")"
     ' <<< "$release_assets") || exit 1
 
-    local url signature_url content_type size digest
-    IFS=',' read -r url signature_url content_type size digest \
-      <<< "$release_asset"
+    local url signature_url content_type digest
+    IFS=',' read -r url signature_url content_type digest <<< "$release_asset"
 
     publish_signed_file "$filename" "$url" "$signature_url" "$content_type" \
-      "$size" "$digest" "${key_fingerprints[@]}"
+      "$digest" "${key_fingerprints[@]}"
   done 4<<< "$signed_asset_names"
 }

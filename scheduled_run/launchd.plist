@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!-- runs scheduled_run/run.sh on a schedule (or when the mac wakes, if it was
-asleep at a scheduled time), in your shell as a login shell, so it gets NSEC
-and PATH from your shell's startup files. scheduled_run/install.sh fills in
-LOGIN_SHELL, CLONE_DIR, LOG_DIR, and SCHEDULE. -->
+asleep at a scheduled time), in your shell as a login shell, so it gets the
+hasheus keys and PATH from your shell's startup files.
+scheduled_run/install.sh fills in LOGIN_SHELL, CLONE_DIR, LOG_DIR, and
+SCHEDULE. -->
 <plist version="1.0">
   <dict>
     <key>Label</key>

@@ -2,7 +2,7 @@
 
 # runs scheduled_run/run.sh in a clone of a scratch repo that has the real
 # scheduled run files and stub verify_all.sh and check_keys.sh, so these test
-# the run's own steps. the fakes stand in for gh, nak, and the ai's cli.
+# the run's own steps. the fakes stand in for gh and the ai's cli.
 
 # shellcheck source=test/test_helper.bash
 source "$BATS_TEST_DIRNAME/test_helper.bash"
@@ -62,7 +62,8 @@ setup() {
 
   export PATH="$PROJECT_DIR/test/fakes:$PATH"
   export SCHEDULED_RUN_LOG_DIR="$BATS_TEST_TMPDIR/logs"
-  export NSEC='nsec-fake'
+  export HASHEUS_PUBLIC_KEY='npub1fake'
+  export HASHEUS_SECRET_KEY='nsec1fake'
   export FAKE_GH_ROOT="$BATS_TEST_TMPDIR/gh"
   export FAKE_GH_LOG="$BATS_TEST_TMPDIR/gh.log"
   export FAKE_AI_LOG="$BATS_TEST_TMPDIR/ai.log"
@@ -104,13 +105,15 @@ last_run_dir() {
   [ ! -f "$FAKE_AI_LOG" ]
 }
 
-@test 'exits when the nsec is not set' {
-  unset NSEC
+@test 'exits when either key is not set' {
+  local variable
+  for variable in HASHEUS_PUBLIC_KEY HASHEUS_SECRET_KEY; do
+    run env -u "$variable" "$clone_dir/scheduled_run/run.sh"
 
-  run_scheduled
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"\$$variable not set, exiting"* ]]
+  done
 
-  [ "$status" -eq 1 ]
-  [[ "$output" == *'$NSEC not set, exiting'* ]]
   [ ! -f "$FAKE_AI_LOG" ]
 }
 
@@ -152,13 +155,14 @@ last_run_dir() {
     "$(git -C "$origin_dir" rev-parse main)" ]
 }
 
-@test 'runs AI_COMMAND with the prompt, without the nsec, as a dry run' {
+@test 'runs AI_COMMAND with the prompt, without the secret key, as a dry run' {
   AI_COMMAND='ai --model test-model' run_scheduled
 
   [ "$status" -eq 0 ]
   grep -q "^args: --model test-model follow scheduled_run/instructions.md \
 .* \"$run_title\" in tinfoilhash/hasheus-from-gpg. " "$FAKE_AI_LOG"
-  grep -q '^env: NSEC=unset DRY_RUN=1 NPUB=npub-for-' "$FAKE_AI_LOG"
+  grep -q "^env: HASHEUS_SECRET_KEY=unset DRY_RUN=1 \
+HASHEUS_PUBLIC_KEY=npub1fake$" "$FAKE_AI_LOG"
 }
 
 @test 'tells the ai the repo and the user it acts as' {

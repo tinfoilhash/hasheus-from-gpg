@@ -184,5 +184,5 @@ run_electrum() {
 
   [ "$status" -eq 0 ]
   [ "$(grep -c 'file already verified, skipping' <<< "$output")" -eq 4 ]
-  [ "$(wc -l < "$FAKE_NAK_LOG")" -eq 4 ]
+  [ "$(wc -l < "$FAKE_HASHEUS_LOG")" -eq 4 ]
 }
