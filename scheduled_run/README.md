@@ -1,6 +1,6 @@
 # scheduled run
 
-[run.sh](run.sh) runs every package for real on a schedule on a mac (daily by default), then has an ai triage the results by following [instructions.md](instructions.md): it opens issues for upstream maintainers, opens prs for bugs in the repo (never merging them), and opens a "scheduled run" issue in the repo with the run's summary. it posts to the repo the clone came from, as that repo's owner, so a fork's scheduled run posts to the fork. if the ai step fails, the script opens a plain summary instead. the ai runs without `NSEC` in its environment and with `DRY_RUN` set, so the packages it runs are dry runs. it still runs as you, so this guards against mistakes, not against an ai set on publishing or pushing (it could read the nsec from your shell's startup files, or run code it writes).
+[run.sh](run.sh) runs every package for real on a schedule on a mac (daily by default), then has an ai triage the results by following [instructions.md](instructions.md): it opens issues for upstream maintainers, opens prs for bugs in the repo (never merging them), and opens a "scheduled run" issue in the repo with the run's summary. it posts to the repo the clone came from, as that repo's owner, so a fork's scheduled run posts to the fork. if the ai step fails, the script opens a plain summary instead. the ai runs without `HASHEUS_SECRET_KEY` in its environment and with `DRY_RUN` set, so the packages it runs are dry runs. it still runs as you, so this guards against mistakes, not against an ai set on publishing or pushing (it could read the secret key from your shell's startup files, or run code it writes).
 
 ## installing
 
@@ -18,7 +18,7 @@ that clones the checkout's origin into its own folder, since each run resets its
 
 ## requirements
 
-launchd starts it in your shell (`$SHELL`) as a login shell, so `NSEC` and a `PATH` that finds the tools and the ai's cli have to be set in the files that shell reads at login: `~/.zshenv` or `~/.zprofile` for zsh (not `~/.zshrc`), or `~/.bash_profile` for bash. `gh` has to be logged in as the account it posts as, and the ai's cli logged in. it also needs git and perl, which come with macos (git with its command line tools).
+launchd starts it in your shell (`$SHELL`) as a login shell, so `HASHEUS_PUBLIC_KEY`, `HASHEUS_SECRET_KEY`, and a `PATH` that finds the tools and the ai's cli have to be set in the files that shell reads at login: `~/.zshenv` or `~/.zprofile` for zsh (not `~/.zshrc`), or `~/.bash_profile` for bash. `gh` has to be logged in as the account it posts as, and the ai's cli logged in. it also needs git and perl, which come with macos (git with its command line tools).
 
 ## running it now
 
@@ -30,7 +30,7 @@ launchctl kickstart "gui/$(id -u)/com.hasheus.from-gpg.scheduled-run"
 
 ## settings
 
-it's configured with env vars, set in the same place as `NSEC`:
+it's configured with env vars, set in the same place as the hasheus keys:
 
 - `AI_COMMAND`: the ai's cli and its flags, which the prompt is appended to (default: `claude -p --dangerously-skip-permissions`). for example, `opencode run --auto -m <provider/model>` or `codex exec --full-auto`.
 - `AI_TIMEOUT_SECONDS`: how long the ai step can run before it's stopped, along with everything it started (default: 3600).

@@ -121,7 +121,7 @@ while IFS=',' read -r version published_at <&3; do
     echo "------- processing file: $filename"
 
     publish_signed_file "$filename" "$release_url/$filename" \
-      "$release_url/$filename.asc" '' '' '' "${key_fingerprints[@]}"
+      "$release_url/$filename.asc" '' '' "${key_fingerprints[@]}"
   done 4<<< "$signed_names"
 
   complete_release "$package_name" "$published_at"

@@ -15,9 +15,9 @@ in the future, the hope is that the authors of these packages start signing and 
 - [file](https://www.darwinsys.com/file/)
 - [gh](https://cli.github.com/)
 - [gpg](https://www.gnupg.org/)
+- [hasheus](https://github.com/tinfoilhash/hasheus-cli)
 - [hq](https://github.com/orf/html-query)
 - [jaq](https://github.com/01mf02/jaq)
-- [nak](https://github.com/fiatjaf/nak)
 - [shasum](https://perldoc.perl.org/shasum)
 - [xmllint](https://gnome.pages.gitlab.gnome.org/libxml2/xmllint.html)
 
@@ -42,13 +42,15 @@ gpg --keyserver hkps://keys.openpgp.org --recv-keys {{fingerprint}}
 ## usage
 
 ```bash
-NSEC={{nsec...}} ./verify_all.sh
+HASHEUS_PUBLIC_KEY={{npub...}} HASHEUS_SECRET_KEY={{nsec...}} ./verify_all.sh
 ```
+
+hasheus publishes with the secret key, which has to be an nsec, since an ncryptsec asks for its password. it looks up which files are already published by the public key, so the two have to match, and the public key needs a nostr profile. both use hasheus's default relays, unless `HASHEUS_FILE_RELAY_URLS` and `HASHEUS_USER_RELAY_URLS` point elsewhere, like a local relay for testing.
 
 to verify an individual package:
 
 ```bash
-NSEC={{nsec...}} ./packages/{{name}}/verify.sh
+HASHEUS_PUBLIC_KEY={{npub...}} HASHEUS_SECRET_KEY={{nsec...}} ./packages/{{name}}/verify.sh
 ```
 
 on the first run, only the last 3 releases of a package are verified. subsequent runs verify up to 30 releases since the previous run. the date/time of the last release verified is stored in `~/.config/hasheus-from-gpg/{{name}}`.
@@ -57,10 +59,10 @@ a release whose signature isn't from a listed key (or, for projects that sign ea
 
 ### dry run
 
-a dry run does everything except publish events and record the last release, so it's safe to run anywhere. any `DRY_RUN` value but `0` means a dry run. it only reads from the relay, so it can take your npub instead of your nsec:
+a dry run does everything except publish events and record the last release, so it's safe to run anywhere. any `DRY_RUN` value but `0` means a dry run. it only reads from the relay, so it only needs your public key:
 
 ```bash
-DRY_RUN=1 NPUB={{npub...}} ./verify_all.sh
+DRY_RUN=1 HASHEUS_PUBLIC_KEY={{npub...}} ./verify_all.sh
 ```
 
 ### scheduled run
@@ -75,7 +77,7 @@ DRY_RUN=1 NPUB={{npub...}} ./verify_all.sh
 
 ### tests
 
-the tests use [bats](https://github.com/bats-core/bats-core). fake `gh`, `nak`, and `curl` (in `test/fakes`) serve fixtures, and gpg keys are generated for each run, so the tests never touch the network or the relay.
+the tests use [bats](https://github.com/bats-core/bats-core). fake `gh`, `hasheus`, and `curl` (in `test/fakes`) serve fixtures, and gpg keys are generated for each run, so the tests never touch the network or the relay.
 
 ```bash
 brew install actionlint bats-core shellcheck shfmt

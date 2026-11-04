@@ -291,8 +291,8 @@ run_package() {
   write_package 'manifest-{{NAME}}.txt' 'manifest-*-{{NAME}}.sig' < /dev/null
   run_package per-signer
   rm "$XDG_CONFIG_HOME/hasheus-from-gpg/test"
-  grep -v app-v2.tar.gz "$FAKE_NAK_LOG" > "$FAKE_NAK_LOG.new"
-  mv "$FAKE_NAK_LOG.new" "$FAKE_NAK_LOG"
+  grep -v app-v2.tar.gz "$FAKE_HASHEUS_LOG" > "$FAKE_HASHEUS_LOG.new"
+  mv "$FAKE_HASHEUS_LOG.new" "$FAKE_HASHEUS_LOG"
   local downloads="$BATS_TEST_TMPDIR/downloads"
 
   FAKE_CURL_LOG="$downloads" run_package per-signer
@@ -406,7 +406,7 @@ EOF
 @test 'exits without recording a failed publish, and a rerun publishes it' {
   write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
 
-  FAKE_NAK_FAIL=app-v1.zip run_package clearsigned
+  FAKE_HASHEUS_REJECT=app-v1.zip run_package clearsigned
 
   [ "$status" -eq 1 ]
   [ -z "$(published)" ]
@@ -437,7 +437,7 @@ EOF
   local failures="$BATS_TEST_TMPDIR/failures"
   echo 2 > "$failures"
 
-  FAKE_NAK_REQ_FAILURES="$failures" run_package clearsigned
+  FAKE_HASHEUS_VERIFY_FAILURES="$failures" run_package clearsigned
 
   [ "$status" -eq 0 ]
   [ "$(grep -c 'relay query failed (attempt' <<< "$output")" -eq 2 ]
@@ -449,7 +449,7 @@ EOF
   local failures="$BATS_TEST_TMPDIR/failures"
   echo 2 > "$failures"
 
-  FAKE_NAK_EVENT_FAILURES="$failures" run_package clearsigned
+  FAKE_HASHEUS_PUBLISH_FAILURES="$failures" run_package clearsigned
 
   [ "$status" -eq 0 ]
   [ "$(grep -c 'publish failed (attempt' <<< "$output")" -eq 2 ]
@@ -462,12 +462,27 @@ EOF
   local failures="$BATS_TEST_TMPDIR/failures"
   echo 1 > "$failures"
 
-  FAKE_NAK_EVENT_FAILURES="$failures" FAKE_NAK_EVENT_LANDS=1 \
+  FAKE_HASHEUS_PUBLISH_FAILURES="$failures" FAKE_HASHEUS_PUBLISH_LANDS=1 \
     run_package clearsigned
 
   [ "$status" -eq 0 ]
   [[ "$output" == *'event was published after all'* ]]
-  [ "$(wc -l < "$FAKE_NAK_LOG")" -eq 2 ]
+  [ "$(wc -l < "$FAKE_HASHEUS_LOG")" -eq 2 ]
+}
+
+@test 'does not republish when the last failed publish reached the relay' {
+  write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
+  local failures="$BATS_TEST_TMPDIR/failures"
+  echo 3 > "$failures"
+
+  FAKE_HASHEUS_PUBLISH_FAILURES="$failures" FAKE_HASHEUS_PUBLISH_LANDS=1 \
+    run_package clearsigned
+
+  [ "$status" -eq 0 ]
+  [ "$(grep -c 'publish failed (attempt' <<< "$output")" -eq 3 ]
+  [[ "$output" == *'event was published after all'* ]]
+  published_is app-v1.zip app-v2.zip
+  [ "$(state_of test)" = '2026-02-01T00:00:00Z' ]
 }
 
 @test 'exits without recording after three failed publishes' {
@@ -475,7 +490,7 @@ EOF
   local failures="$BATS_TEST_TMPDIR/failures"
   echo 3 > "$failures"
 
-  FAKE_NAK_EVENT_FAILURES="$failures" run_package clearsigned
+  FAKE_HASHEUS_PUBLISH_FAILURES="$failures" run_package clearsigned
 
   [ "$status" -eq 1 ]
   [ "$(grep -c 'publish failed (attempt' <<< "$output")" -eq 3 ]
@@ -489,7 +504,7 @@ EOF
   local failures="$BATS_TEST_TMPDIR/failures"
   echo 3 > "$failures"
 
-  FAKE_NAK_REQ_FAILURES="$failures" run_package clearsigned
+  FAKE_HASHEUS_VERIFY_FAILURES="$failures" run_package clearsigned
 
   [ "$status" -eq 1 ]
   [[ "$output" == *'relay query failed, exiting'* ]]
@@ -497,13 +512,47 @@ EOF
   [ -z "$(state_of test)" ]
 }
 
-@test 'publishes and records nothing in a dry run with only an npub' {
+@test 'exits without retrying when hasheus rejects the public key' {
   write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
-  unset NSEC
 
-  local npub='npub1gm7yl6a9xsnkg2lepuaf4hddv2yvwlun5atxjtye3pu5l0vh5kes8ef4r5'
+  HASHEUS_PUBLIC_KEY='invalid' run_package clearsigned
 
-  DRY_RUN=1 NPUB="$npub" run_package clearsigned
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"hasheus failed: HASHEUS_PUBLIC_KEY isn't a valid npub or \
+hex public key, exiting"* ]]
+  [[ "$output" != *'relay query failed'* ]]
+  [ -z "$(published)" ]
+  [ -z "$(state_of test)" ]
+}
+
+@test 'exits without retrying when hasheus rejects the secret key' {
+  write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
+
+  HASHEUS_SECRET_KEY='invalid' run_package clearsigned
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"hasheus failed: the secret key isn't a valid nsec or \
+ncryptsec, exiting"* ]]
+  [[ "$output" != *'publish failed (attempt'* ]]
+  [ -z "$(published)" ]
+  [ -z "$(state_of test)" ]
+}
+
+@test 'publishes the content type of each release asset' {
+  write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
+
+  run_package clearsigned
+
+  [ "$status" -eq 0 ]
+  [ "$(cut -d ' ' -f 3 "$FAKE_HASHEUS_LOG" | sort -u)" = \
+    'application/octet-stream' ]
+}
+
+@test 'publishes and records nothing in a dry run with only the public key' {
+  write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
+  unset HASHEUS_SECRET_KEY
+
+  DRY_RUN=1 run_package clearsigned
 
   [ "$status" -eq 0 ]
   [[ "$output" == *'dry run: would publish app-v1.zip'* ]]
@@ -522,7 +571,7 @@ EOF
 
   [ "$status" -eq 0 ]
   [ "$(grep -c 'file already verified, skipping' <<< "$output")" -eq 2 ]
-  [ "$(wc -l < "$FAKE_NAK_LOG")" -eq 2 ]
+  [ "$(wc -l < "$FAKE_HASHEUS_LOG")" -eq 2 ]
 }
 
 @test 'publishes each file that has its own signature' {
@@ -635,7 +684,7 @@ EOF
   [ "$status" -eq 0 ]
   [ "$(grep -c 'file already verified, skipping' <<< "$output")" -eq 4 ]
   [ ! -s "$downloads" ]
-  [ "$(wc -l < "$FAKE_NAK_LOG")" -eq 4 ]
+  [ "$(wc -l < "$FAKE_HASHEUS_LOG")" -eq 4 ]
 }
 
 @test 'skips signed files already published when github has no digests' {
@@ -650,5 +699,5 @@ EOF
   [ "$status" -eq 0 ]
   [ "$(grep -c 'file already verified, skipping' <<< "$output")" -eq 4 ]
   [ "$(grep -c -v '\.asc$' "$downloads")" -eq 4 ]
-  [ "$(wc -l < "$FAKE_NAK_LOG")" -eq 4 ]
+  [ "$(wc -l < "$FAKE_HASHEUS_LOG")" -eq 4 ]
 }
