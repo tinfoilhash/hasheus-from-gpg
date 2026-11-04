@@ -1,8 +1,8 @@
 # hasheus / from gpg
 
-bridge gpg verified files to nostr — such as bitcoin core, hardware wallet firmware, and more — making them easy to access through a client like [hasheus](https://hasheus.com/).
+bridge gpg verified files from freedom tech projects to [hasheus](https://hasheus.com/), such as bitcoin core, lnd, and more.
 
-in the future, the hope is that the authors of these packages start signing and publishing directly with their own nostr identity. until then, this collection of shell scripts automates the process of verifying their gpg signed files and publishing under a nostr identity you control.
+in the future, the hope is that the authors of these packages start publishing directly to hasheus with their own nostr identity. until then, this collection of shell scripts automates the process of verifying their gpg signed files and publishing under a nostr identity you control.
 
 [tinfoil hash](https://njump.to/npub1gm7yl6a9xsnkg2lepuaf4hddv2yvwlun5atxjtye3pu5l0vh5kes8ef4r5) runs this on a daily basis.
 
