@@ -403,6 +403,13 @@ run_signed_files_release() {
   [ "$(published)" = 'phoenixd-0.9.3-linux-x64.zip' ]
 }
 
+@test 'ricochet refresh' {
+  run_release ricochet_refresh v3.0.47-release sha256sums.txt \
+    sha256sums.txt.asc ricochet-refresh-3.0.47-linux-x86_64.tar.gz
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'ricochet-refresh-3.0.47-linux-x86_64.tar.gz' ]
+}
+
 @test 'robosats' {
   run_signed_files_release robosats v0.8.7-alpha .asc \
     robosats-v0.8.7.alpha-universal.017de9a.apk
