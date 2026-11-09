@@ -438,6 +438,13 @@ run_signed_files_release() {
   [ "$(published)" = 'initial_firmware_v1.10.5.bin' ]
 }
 
+@test 'syncthing' {
+  run_release syncthing v2.1.7 sha256sum.txt.asc sha256sum.txt.asc \
+    syncthing-freebsd-386-v2.1.7.tar.gz unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'syncthing-freebsd-386-v2.1.7.tar.gz' ]
+}
+
 @test 'taproot assets' {
   run_release taproot_assets v0.8.6 manifest-v0.8.6.txt \
     manifest-roasbeef-v0.8.6.sig taproot-assets-linux-amd64-v0.8.6.tar.gz \
