@@ -300,6 +300,13 @@ run_signed_files_release() {
   [ "$(published)" = 'Keychat-1.41.1+6513-linux-amd64.deb' ]
 }
 
+@test 'kopia' {
+  run_release kopia v0.23.1 checksums.txt checksums.txt.sig \
+    KopiaUI-0.23.1-armv7l.AppImage unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'KopiaUI-0.23.1-armv7l.AppImage' ]
+}
+
 @test 'krux' {
   run_release krux v26.09.0 SHA256SUMS SHA256SUMS.asc krux-v26.09.0.zip \
     SHA256SUMS.sig
