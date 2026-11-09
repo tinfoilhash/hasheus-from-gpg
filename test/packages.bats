@@ -214,6 +214,13 @@ run_signed_files_release() {
   [ "$(published)" = 'BTCPayServerVault-3.0.1.deb' ]
 }
 
+@test 'ceno' {
+  run_release ceno v2.12.2 sha256sums.txt sha256sums.txt.asc \
+    ceno-arm64-v8a-release-2.12.2-2026-10-22_1449.apk
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'ceno-arm64-v8a-release-2.12.2-2026-10-22_1449.apk' ]
+}
+
 @test 'chantools' {
   run_release chantools v0.14.3 manifest-v0.14.3.txt manifest-v0.14.3.sig \
     chantools-linux-amd64-v0.14.3.tar.gz
