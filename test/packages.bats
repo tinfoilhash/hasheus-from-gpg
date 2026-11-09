@@ -403,6 +403,13 @@ run_signed_files_release() {
   [ "$(published)" = 'phoenixd-0.9.3-linux-x64.zip' ]
 }
 
+@test 'proton mail bridge' {
+  run_signed_files_release proton_mail_bridge v3.27.1 .sig \
+    protonmail-bridge_3.27.1-1_amd64.deb unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'protonmail-bridge_3.27.1-1_amd64.deb' ]
+}
+
 @test 'robosats' {
   run_signed_files_release robosats v0.8.7-alpha .asc \
     robosats-v0.8.7.alpha-universal.017de9a.apk
