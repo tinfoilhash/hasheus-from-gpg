@@ -279,6 +279,13 @@ run_signed_files_release() {
   [ "$(published)" = 'Fulcrum-2.1.3-x86_64-linux.tar.gz' ]
 }
 
+@test 'ginger wallet' {
+  run_signed_files_release ginger_wallet v2.0.27 .asc Ginger-2.0.27.deb \
+    unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'Ginger-2.0.27.deb' ]
+}
+
 @test 'haven' {
   run_release haven v1.2.2 checksums.txt checksums.txt.sig \
     haven_Darwin_arm64.tar.gz
