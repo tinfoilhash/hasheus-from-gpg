@@ -214,6 +214,13 @@ run_signed_files_release() {
   [ "$(published)" = 'BTCPayServerVault-3.0.1.deb' ]
 }
 
+@test 'bull bitcoin' {
+  run_release bull_bitcoin v6.15.0 HASHSUMS256 HASHSUMS256.asc \
+    bullbitcoin-mobile-6.15.0.apk unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'bullbitcoin-mobile-6.15.0.apk' ]
+}
+
 @test 'chantools' {
   run_release chantools v0.14.3 manifest-v0.14.3.txt manifest-v0.14.3.sig \
     chantools-linux-amd64-v0.14.3.tar.gz
