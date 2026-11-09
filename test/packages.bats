@@ -293,6 +293,13 @@ run_signed_files_release() {
   [ "$(published)" = 'hwi-3.2.0-linux-x86_64.tar.gz' ]
 }
 
+@test 'hyphanet' {
+  run_signed_files_release hyphanet build01507 .sig \
+    freenet-build01507.jar freenet.jar
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'freenet-build01507.jar' ]
+}
+
 @test 'keychat' {
   run_signed_files_release keychat v1.41.1+6513 .asc \
     Keychat-1.41.1+6513-linux-amd64.deb Keychat-1.41.1+6513-macos-arm64.dmg
