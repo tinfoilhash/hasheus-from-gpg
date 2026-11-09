@@ -237,6 +237,13 @@ run_signed_files_release() {
   [ "$(published)" = 'clightning-v26.06.9-Ubuntu-24.04-amd64.tar.xz' ]
 }
 
+@test 'cryptomator' {
+  run_signed_files_release cryptomator 1.19.6 .asc \
+    cryptomator-1.19.6-aarch64.AppImage.zsync unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'cryptomator-1.19.6-aarch64.AppImage.zsync' ]
+}
+
 @test 'eclair' {
   run_release eclair v0.14.4 SHA256SUMS.asc SHA256SUMS.asc \
     eclair-node-0.14.4-397abfc-bin.zip
