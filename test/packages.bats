@@ -279,6 +279,13 @@ run_signed_files_release() {
   [ "$(published)" = 'Fulcrum-2.1.3-x86_64-linux.tar.gz' ]
 }
 
+@test 'gitea' {
+  run_signed_files_release gitea v28.3.0 .asc gitea-28.3.0-linux-amd64.xz \
+    unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'gitea-28.3.0-linux-amd64.xz' ]
+}
+
 @test 'haven' {
   run_release haven v1.2.2 checksums.txt checksums.txt.sig \
     haven_Darwin_arm64.tar.gz
