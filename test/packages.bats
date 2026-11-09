@@ -403,6 +403,13 @@ run_signed_files_release() {
   [ "$(published)" = 'phoenixd-0.9.3-linux-x64.zip' ]
 }
 
+@test 'qtox' {
+  run_signed_files_release qtox v1.18.6 .asc \
+    qTox-v1.18.6-x86_64.AppImage qTox-v1.18.6-x86_64.AppImage.sha256
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'qTox-v1.18.6-x86_64.AppImage' ]
+}
+
 @test 'robosats' {
   run_signed_files_release robosats v0.8.7-alpha .asc \
     robosats-v0.8.7.alpha-universal.017de9a.apk
