@@ -454,6 +454,13 @@ run_signed_files_release() {
   [ "$(published)" = 'Trezor-Suite-26.9.3-linux-x86_64.AppImage' ]
 }
 
+@test 'veracrypt' {
+  run_signed_files_release veracrypt VeraCrypt_1.26.31 .sig \
+    VeraCrypt.Portable.1.26.31.exe unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'VeraCrypt.Portable.1.26.31.exe' ]
+}
+
 @test 'wasabi' {
   run_release wasabi v2.8.4 SHA256SUMS.asc SHA256SUMS.asc \
     Wasabi-2.8.4-arm64.AppImage SHA256SUMS Wasabi-2.8.4-arm64.AppImage.asc
