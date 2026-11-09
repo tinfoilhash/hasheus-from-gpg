@@ -321,6 +321,13 @@ run_signed_files_release() {
   [ "$(published)" = 'liana-business-1.0rc2-1_amd64.deb' ]
 }
 
+@test 'libsecp256k1' {
+  run_signed_files_release libsecp256k1 v0.8.0 .sig \
+    libsecp256k1-0.8.0.tar.gz unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'libsecp256k1-0.8.0.tar.gz' ]
+}
+
 @test 'lightning node connect' {
   run_release lightning_node_connect v0.4.0-alpha manifest-v0.4.0-alpha.txt \
     manifest-ViktorT-11-v0.4.0-alpha.sig lnc-v0.4.0-alpha.wasm \
