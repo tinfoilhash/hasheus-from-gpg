@@ -461,6 +461,13 @@ run_signed_files_release() {
   [ "$(published)" = 'Wasabi-2.8.4-arm64.AppImage' ]
 }
 
+@test 'yubico authenticator' {
+  run_signed_files_release yubico_authenticator 7.5.0 .sig \
+    yubico-authenticator-7.5.0-linux-arm64.tar.gz unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'yubico-authenticator-7.5.0-linux-arm64.tar.gz' ]
+}
+
 @test 'zeus' {
   run_release zeus v13.2.3 manifest-v13.2.3.txt manifest-v13.2.3.txt.sig \
     zeus-v13.2.3-universal.apk
