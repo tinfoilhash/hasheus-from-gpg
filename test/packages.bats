@@ -346,6 +346,14 @@ run_signed_files_release() {
   [ "$(published)" = 'lnd-darwin-amd64-v0.21.4-beta.tar.gz' ]
 }
 
+@test 'lndinit' {
+  run_release lndinit v0.1.36-beta manifest-v0.1.36-beta.txt \
+    manifest-v0.1.36-beta.sig lndinit-darwin-amd64-v0.1.36-beta.tar.gz \
+    unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'lndinit-darwin-amd64-v0.1.36-beta.tar.gz' ]
+}
+
 @test 'loop' {
   run_release loop v0.35.0-beta manifest-v0.35.0-beta.txt \
     manifest-v0.35.0-beta.txt.sig loop-linux-amd64-v0.35.0-beta.tar.gz
