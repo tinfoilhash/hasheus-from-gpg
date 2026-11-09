@@ -300,6 +300,13 @@ run_signed_files_release() {
   [ "$(published)" = 'Keychat-1.41.1+6513-linux-amd64.deb' ]
 }
 
+@test 'keyos' {
+  run_signed_files_release keyos v1.4.1 .sig \
+    KeyOS-v1.4.0-to-v1.4.1-Update.tar unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'KeyOS-v1.4.0-to-v1.4.1-Update.tar' ]
+}
+
 @test 'krux' {
   run_release krux v26.09.0 SHA256SUMS SHA256SUMS.asc krux-v26.09.0.zip \
     SHA256SUMS.sig
