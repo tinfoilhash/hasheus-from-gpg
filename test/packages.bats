@@ -591,6 +591,13 @@ run_signed_files_release() {
   [ "$(published)" = 'restic_0.19.1_netbsd_amd64.bz2' ]
 }
 
+@test 'rclone' {
+  run_release rclone v1.76.0 SHA256SUMS SHA256SUMS \
+    rclone-v1.76.0-linux-amd64.zip unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'rclone-v1.76.0-linux-amd64.zip' ]
+}
+
 @test 'robosats' {
   run_signed_files_release robosats v0.8.7-alpha .asc \
     robosats-v0.8.7.alpha-universal.017de9a.apk
