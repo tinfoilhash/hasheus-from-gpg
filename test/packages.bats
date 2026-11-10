@@ -360,6 +360,14 @@ run_signed_files_release() {
   [ "$(published)" = 'mostrod-x86_64-unknown-linux-musl' ]
 }
 
+@test 'mullvad browser' {
+  run_release mullvad_browser 16.0 sha256sums-signed-build.txt \
+    sha256sums-signed-build.txt.asc \
+    mullvad-browser-linux-x86_64-16.0.tar.xz
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'mullvad-browser-linux-x86_64-16.0.tar.xz' ]
+}
+
 @test 'nunchuk android' {
   run_release nunchuk_android android.2.9.3 SHA256SUMS.asc SHA256SUMS.asc \
     2.9.3.apk SHA256SUMS
