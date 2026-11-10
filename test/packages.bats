@@ -577,6 +577,13 @@ run_signed_files_release() {
   [ "$(published)" = 'protonmail-bridge_3.27.1-1_amd64.deb' ]
 }
 
+@test 'restic' {
+  run_release restic v0.19.1 SHA256SUMS SHA256SUMS.asc \
+    restic_0.19.1_netbsd_amd64.bz2 unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'restic_0.19.1_netbsd_amd64.bz2' ]
+}
+
 @test 'robosats' {
   run_signed_files_release robosats v0.8.7-alpha .asc \
     robosats-v0.8.7.alpha-universal.017de9a.apk
