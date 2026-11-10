@@ -214,6 +214,20 @@ run_signed_files_release() {
   [ "$(published)" = 'BTCPayServerVault-3.0.1.deb' ]
 }
 
+@test 'ceno' {
+  run_release ceno v2.12.2 sha256sums.txt sha256sums.txt.asc \
+    ceno-arm64-v8a-release-2.12.2-2026-10-22_1449.apk
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'ceno-arm64-v8a-release-2.12.2-2026-10-22_1449.apk' ]
+}
+
+@test 'bull bitcoin' {
+  run_release bull_bitcoin v6.15.0 HASHSUMS256 HASHSUMS256.asc \
+    bullbitcoin-mobile-6.15.0.apk unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'bullbitcoin-mobile-6.15.0.apk' ]
+}
+
 @test 'chantools' {
   run_release chantools v0.14.3 manifest-v0.14.3.txt manifest-v0.14.3.sig \
     chantools-linux-amd64-v0.14.3.tar.gz
@@ -237,11 +251,32 @@ run_signed_files_release() {
   [ "$(published)" = 'clightning-v26.06.9-Ubuntu-24.04-amd64.tar.xz' ]
 }
 
+@test 'dangerzone' {
+  run_signed_files_release dangerzone v0.11.1 .asc \
+    Dangerzone-0.11.1-arm64.dmg checksums-0.11.1.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'Dangerzone-0.11.1-arm64.dmg' ]
+}
+
+@test 'cryptomator' {
+  run_signed_files_release cryptomator 1.19.6 .asc \
+    cryptomator-1.19.6-aarch64.AppImage.zsync unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'cryptomator-1.19.6-aarch64.AppImage.zsync' ]
+}
+
 @test 'eclair' {
   run_release eclair v0.14.4 SHA256SUMS.asc SHA256SUMS.asc \
     eclair-node-0.14.4-397abfc-bin.zip
   [ "$status" -eq 0 ]
   [ "$(published)" = 'eclair-node-0.14.4-397abfc-bin.zip' ]
+}
+
+@test 'element web' {
+  run_signed_files_release element_web v1.12.33 .asc element-v1.12.33.tar.gz \
+    unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'element-v1.12.33.tar.gz' ]
 }
 
 @test 'elements' {
@@ -272,11 +307,33 @@ run_signed_files_release() {
   [ "$(published)" = 'frigate_1.6.1_amd64.deb' ]
 }
 
+@test 'frostsnap' {
+  run_release frostsnap v0.4.1 CHECKSUMS CHECKSUMS.asc firmware.bin \
+    unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'firmware.bin' ]
+}
+
 @test 'fulcrum' {
   run_release fulcrum v2.1.3 Fulcrum-2.1.3-shasums.txt \
     Fulcrum-2.1.3-shasums.txt.asc Fulcrum-2.1.3-x86_64-linux.tar.gz
   [ "$status" -eq 0 ]
   [ "$(published)" = 'Fulcrum-2.1.3-x86_64-linux.tar.gz' ]
+}
+
+@test 'ginger wallet' {
+  run_signed_files_release ginger_wallet v2.0.27 .asc Ginger-2.0.27.deb \
+    unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'Ginger-2.0.27.deb' ]
+}
+
+@test 'gopass' {
+  run_release gopass v1.17.4 gopass_1.17.4_SHA256SUMS \
+    gopass_1.17.4_SHA256SUMS.sig gopass-1.17.4-linux-arm64.tar.gz \
+    unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'gopass-1.17.4-linux-arm64.tar.gz' ]
 }
 
 @test 'haven' {
@@ -293,11 +350,32 @@ run_signed_files_release() {
   [ "$(published)" = 'hwi-3.2.0-linux-x86_64.tar.gz' ]
 }
 
+@test 'hyphanet' {
+  run_signed_files_release hyphanet build01507 .sig \
+    freenet-build01507.jar freenet.jar
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'freenet-build01507.jar' ]
+}
+
+@test 'keepassxc' {
+  run_signed_files_release keepassxc 2.8.0 .sig \
+    KeePassXC-2.8.0-aarch64.AppImage.zsync unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'KeePassXC-2.8.0-aarch64.AppImage.zsync' ]
+}
+
 @test 'keychat' {
   run_signed_files_release keychat v1.41.1+6513 .asc \
     Keychat-1.41.1+6513-linux-amd64.deb Keychat-1.41.1+6513-macos-arm64.dmg
   [ "$status" -eq 0 ]
   [ "$(published)" = 'Keychat-1.41.1+6513-linux-amd64.deb' ]
+}
+
+@test 'keyos' {
+  run_signed_files_release keyos v1.4.1 .sig \
+    KeyOS-v1.4.0-to-v1.4.1-Update.tar unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'KeyOS-v1.4.0-to-v1.4.1-Update.tar' ]
 }
 
 @test 'krux' {
@@ -321,6 +399,13 @@ run_signed_files_release() {
   [ "$(published)" = 'liana-business-1.0rc2-1_amd64.deb' ]
 }
 
+@test 'libsecp256k1' {
+  run_signed_files_release libsecp256k1 v0.8.0 .sig \
+    libsecp256k1-0.8.0.tar.gz unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'libsecp256k1-0.8.0.tar.gz' ]
+}
+
 @test 'lightning node connect' {
   run_release lightning_node_connect v0.4.0-alpha manifest-v0.4.0-alpha.txt \
     manifest-ViktorT-11-v0.4.0-alpha.sig lnc-v0.4.0-alpha.wasm \
@@ -338,12 +423,27 @@ run_signed_files_release() {
   [ "$(published)" = 'lightning-terminal-linux-amd64-v0.17.7.tar.gz' ]
 }
 
+@test 'liquid gdk' {
+  run_release liquid_gdk release_0.78.1 SHA256SUMS.asc SHA256SUMS.asc \
+    gdk-release_0.78.1.tar.gz unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'gdk-release_0.78.1.tar.gz' ]
+}
+
 @test 'lnd' {
   run_release lnd v0.21.4-beta manifest-v0.21.4-beta.txt \
     manifest-roasbeef-v0.21.4-beta.sig lnd-darwin-amd64-v0.21.4-beta.tar.gz \
     manifest-roasbeef-v0.21.4-beta.sig.ots
   [ "$status" -eq 0 ]
   [ "$(published)" = 'lnd-darwin-amd64-v0.21.4-beta.tar.gz' ]
+}
+
+@test 'lndinit' {
+  run_release lndinit v0.1.36-beta manifest-v0.1.36-beta.txt \
+    manifest-v0.1.36-beta.sig lndinit-darwin-amd64-v0.1.36-beta.tar.gz \
+    unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'lndinit-darwin-amd64-v0.1.36-beta.tar.gz' ]
 }
 
 @test 'loop' {
@@ -353,11 +453,41 @@ run_signed_files_release() {
   [ "$(published)" = 'loop-linux-amd64-v0.35.0-beta.tar.gz' ]
 }
 
+@test 'mostrix' {
+  NESTED_MANIFEST=1 run_release mostrix v0.3.8 manifest.txt \
+    manifest.txt.sig.arkanoider mostrix-x86_64-pc-windows-msvc.exe \
+    unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'mostrix-x86_64-pc-windows-msvc.exe' ]
+}
+
 @test 'mostro' {
   NESTED_MANIFEST=1 run_release mostro v0.20.2 manifest.txt \
     manifest.txt.sig.negrunch mostrod-x86_64-unknown-linux-musl
   [ "$status" -eq 0 ]
   [ "$(published)" = 'mostrod-x86_64-unknown-linux-musl' ]
+}
+
+@test 'mullvad browser' {
+  run_release mullvad_browser 16.0 sha256sums-signed-build.txt \
+    sha256sums-signed-build.txt.asc \
+    mullvad-browser-linux-x86_64-16.0.tar.xz
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'mullvad-browser-linux-x86_64-16.0.tar.xz' ]
+}
+
+@test 'mullvad vpn desktop' {
+  run_signed_files_release mullvad_vpn 2026.5 .asc \
+    MullvadVPN-2026.5_x64.exe latest.json
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'MullvadVPN-2026.5_x64.exe' ]
+}
+
+@test 'mullvad vpn android' {
+  run_signed_files_release mullvad_vpn android/2026.12 .asc \
+    MullvadVPN-2026.12.apk
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'MullvadVPN-2026.12.apk' ]
 }
 
 @test 'nunchuk android' {
@@ -372,6 +502,29 @@ run_signed_files_release() {
     nunchuk-linux-v2.9.2-x86_64.AppImage
   [ "$status" -eq 0 ]
   [ "$(published)" = 'nunchuk-linux-v2.9.2-x86_64.AppImage' ]
+}
+
+@test 'onionshare' {
+  run_signed_files_release onionshare v2.7.2 .asc \
+    OnionShare-win64-2.7.2.msi onionshare-2.7.2.tar.gz
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'OnionShare-win64-2.7.2.msi' ]
+}
+
+@test 'orbot release candidate' {
+  local apk='Orbot-17.9.7-RC-1-tor-0.4.9.14-1-g0ea112a4d'
+  apk="$apk-fullperm-arm64-v8a-release.apk"
+  run_signed_files_release orbot 17.9.7-RC-1-tor-0.4.9.14 .asc "$apk"
+  [ "$status" -eq 0 ]
+  [ "$(published)" = "$apk" ]
+}
+
+@test 'orbot beta' {
+  local apk='Orbot-17.9.7-BETA-1-tor-0.4.9.13.2-1-g1bf1722f4'
+  apk="$apk-fullperm-universal-release.apk"
+  run_signed_files_release orbot 17.9.7-BETA-1-tor-0.4.9.13.2 .asc "$apk"
+  [ "$status" -eq 0 ]
+  [ "$(published)" = "$apk" ]
 }
 
 @test 'passport' {
@@ -401,6 +554,27 @@ run_signed_files_release() {
     phoenixd-0.9.3-linux-x64.zip
   [ "$status" -eq 0 ]
   [ "$(published)" = 'phoenixd-0.9.3-linux-x64.zip' ]
+}
+
+@test 'ricochet refresh' {
+  run_release ricochet_refresh v3.0.47-release sha256sums.txt \
+    sha256sums.txt.asc ricochet-refresh-3.0.47-linux-x86_64.tar.gz
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'ricochet-refresh-3.0.47-linux-x86_64.tar.gz' ]
+}
+
+@test 'qtox' {
+  run_signed_files_release qtox v1.18.6 .asc \
+    qTox-v1.18.6-x86_64.AppImage qTox-v1.18.6-x86_64.AppImage.sha256
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'qTox-v1.18.6-x86_64.AppImage' ]
+}
+
+@test 'proton mail bridge' {
+  run_signed_files_release proton_mail_bridge v3.27.1 .sig \
+    protonmail-bridge_3.27.1-1_amd64.deb unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'protonmail-bridge_3.27.1-1_amd64.deb' ]
 }
 
 @test 'robosats' {
@@ -438,6 +612,13 @@ run_signed_files_release() {
   [ "$(published)" = 'initial_firmware_v1.10.5.bin' ]
 }
 
+@test 'syncthing' {
+  run_release syncthing v2.1.7 sha256sum.txt.asc sha256sum.txt.asc \
+    syncthing-freebsd-386-v2.1.7.tar.gz unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'syncthing-freebsd-386-v2.1.7.tar.gz' ]
+}
+
 @test 'taproot assets' {
   run_release taproot_assets v0.8.6 manifest-v0.8.6.txt \
     manifest-roasbeef-v0.8.6.sig taproot-assets-linux-amd64-v0.8.6.tar.gz \
@@ -454,11 +635,25 @@ run_signed_files_release() {
   [ "$(published)" = 'Trezor-Suite-26.9.3-linux-x86_64.AppImage' ]
 }
 
+@test 'veracrypt' {
+  run_signed_files_release veracrypt VeraCrypt_1.26.31 .sig \
+    VeraCrypt.Portable.1.26.31.exe unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'VeraCrypt.Portable.1.26.31.exe' ]
+}
+
 @test 'wasabi' {
   run_release wasabi v2.8.4 SHA256SUMS.asc SHA256SUMS.asc \
     Wasabi-2.8.4-arm64.AppImage SHA256SUMS Wasabi-2.8.4-arm64.AppImage.asc
   [ "$status" -eq 0 ]
   [ "$(published)" = 'Wasabi-2.8.4-arm64.AppImage' ]
+}
+
+@test 'yubikey manager' {
+  run_signed_files_release yubikey_manager 5.9.2 .sig \
+    yubikey_manager-5.9.2-py3-none-any.whl unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'yubikey_manager-5.9.2-py3-none-any.whl' ]
 }
 
 @test 'yubico authenticator' {
