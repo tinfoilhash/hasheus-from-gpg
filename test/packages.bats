@@ -482,6 +482,22 @@ run_signed_files_release() {
   [ "$(published)" = 'OnionShare-win64-2.7.2.msi' ]
 }
 
+@test 'orbot release candidate' {
+  local apk='Orbot-17.9.7-RC-1-tor-0.4.9.14-1-g0ea112a4d'
+  apk="$apk-fullperm-arm64-v8a-release.apk"
+  run_signed_files_release orbot 17.9.7-RC-1-tor-0.4.9.14 .asc "$apk"
+  [ "$status" -eq 0 ]
+  [ "$(published)" = "$apk" ]
+}
+
+@test 'orbot beta' {
+  local apk='Orbot-17.9.7-BETA-1-tor-0.4.9.13.2-1-g1bf1722f4'
+  apk="$apk-fullperm-universal-release.apk"
+  run_signed_files_release orbot 17.9.7-BETA-1-tor-0.4.9.13.2 .asc "$apk"
+  [ "$status" -eq 0 ]
+  [ "$(published)" = "$apk" ]
+}
+
 @test 'passport' {
   run_signed_files_release passport v2.3.11 .sig v2.3.11-passport.bin \
     v2.3.11-sha256
