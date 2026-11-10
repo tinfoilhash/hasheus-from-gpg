@@ -237,6 +237,13 @@ run_signed_files_release() {
   [ "$(published)" = 'clightning-v26.06.9-Ubuntu-24.04-amd64.tar.xz' ]
 }
 
+@test 'dangerzone' {
+  run_signed_files_release dangerzone v0.11.1 .asc \
+    Dangerzone-0.11.1-arm64.dmg checksums-0.11.1.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'Dangerzone-0.11.1-arm64.dmg' ]
+}
+
 @test 'eclair' {
   run_release eclair v0.14.4 SHA256SUMS.asc SHA256SUMS.asc \
     eclair-node-0.14.4-397abfc-bin.zip
