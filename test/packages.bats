@@ -258,6 +258,13 @@ run_signed_files_release() {
   [ "$(published)" = 'eclair-node-0.14.4-397abfc-bin.zip' ]
 }
 
+@test 'element web' {
+  run_signed_files_release element_web v1.12.33 .asc element-v1.12.33.tar.gz \
+    unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'element-v1.12.33.tar.gz' ]
+}
+
 @test 'elements' {
   run_release elements elements-23.3.4 SHA256SUMS.asc SHA256SUMS.asc \
     elements-23.3.4-x86_64-linux-gnu.tar.gz SHA256SUMS
