@@ -395,6 +395,14 @@ run_signed_files_release() {
   [ "$(published)" = 'loop-linux-amd64-v0.35.0-beta.tar.gz' ]
 }
 
+@test 'mostrix' {
+  NESTED_MANIFEST=1 run_release mostrix v0.3.8 manifest.txt \
+    manifest.txt.sig.arkanoider mostrix-x86_64-pc-windows-msvc.exe \
+    unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'mostrix-x86_64-pc-windows-msvc.exe' ]
+}
+
 @test 'mostro' {
   NESTED_MANIFEST=1 run_release mostro v0.20.2 manifest.txt \
     manifest.txt.sig.negrunch mostrod-x86_64-unknown-linux-musl
