@@ -380,6 +380,13 @@ run_signed_files_release() {
   [ "$(published)" = 'lightning-terminal-linux-amd64-v0.17.7.tar.gz' ]
 }
 
+@test 'liquid gdk' {
+  run_release liquid_gdk release_0.78.1 SHA256SUMS.asc SHA256SUMS.asc \
+    gdk-release_0.78.1.tar.gz unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'gdk-release_0.78.1.tar.gz' ]
+}
+
 @test 'lnd' {
   run_release lnd v0.21.4-beta manifest-v0.21.4-beta.txt \
     manifest-roasbeef-v0.21.4-beta.sig lnd-darwin-amd64-v0.21.4-beta.tar.gz \
