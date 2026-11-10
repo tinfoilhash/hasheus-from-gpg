@@ -289,9 +289,16 @@ manifest_filename() {
   echo "${filename#./}"
 }
 
+# github reports some assets' content type as just "raw", which hasheus
+# rejects, since a mime type needs a type and subtype.
+is_mime_type() {
+  [[ "$1" =~ ^[^/[:space:]]+/[^/[:space:]]+$ ]]
+}
+
 # publishes the file on a verified manifest line: skips it if it's already
 # published, otherwise downloads it, checks it against the line, and publishes
-# it. the content type defaults to the downloaded file's.
+# it. the content type defaults to the downloaded file's, and so does one that
+# isn't a mime type.
 publish_file() {
   local shasum_line="$1"
   local url="$2"
@@ -319,7 +326,7 @@ publish_file() {
 
   download_file "$url" "$filename" || exit 1
 
-  if [ -z "$content_type" ]; then
+  if ! is_mime_type "$content_type"; then
     content_type=$(file --mime-type -b "$filename")
   fi
 
@@ -361,7 +368,7 @@ signed_filenames() {
 # digest (like github's) is used only to skip a file that's already published
 # without downloading it: what's published is the downloaded file's hash, once
 # its signature verifies. the content type defaults to the downloaded
-# file's.
+# file's, and so does one that isn't a mime type.
 publish_signed_file() {
   local filename="$1"
   local url="$2"
@@ -397,7 +404,7 @@ publish_signed_file() {
     return
   fi
 
-  if [ -z "$content_type" ]; then
+  if ! is_mime_type "$content_type"; then
     content_type=$(file --mime-type -b "$filename")
   fi
 

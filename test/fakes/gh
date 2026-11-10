@@ -3,7 +3,8 @@
 # serves releases from $FAKE_GH_ROOT: releases.json for `release list`, and
 # <tag>/ for each release's assets, whose urls point at
 # https://github.example/<tag>/<name> (for the fake curl to serve). each asset
-# has a sha256 digest, unless $FAKE_GH_NO_DIGESTS is set, like older releases.
+# has a sha256 digest, unless $FAKE_GH_NO_DIGESTS is set, like older releases,
+# and the content type $FAKE_GH_CONTENT_TYPE (or application/octet-stream).
 # `api <endpoint>` serves $FAKE_GH_ROOT/api/<endpoint without its query>.json.
 #
 # `issue create` is recorded in $FAKE_GH_LOG with the GH_TOKEN it ran with, and
@@ -23,10 +24,11 @@ case "$1 $2" in
       fi
 
       jaq -n --arg tag "$tag" --arg name "${path##*/}" \
-        --argjson size "$(wc -c < "$path")" --arg digest "$digest" '{
+        --argjson size "$(wc -c < "$path")" --arg digest "$digest" \
+        --arg type "${FAKE_GH_CONTENT_TYPE:-application/octet-stream}" '{
           name: $name,
           url: ("https://github.example/" + $tag + "/" + $name),
-          contentType: "application/octet-stream",
+          contentType: $type,
           size: $size,
           digest: (if $digest == "" then null else $digest end)
         }'
