@@ -656,6 +656,13 @@ run_signed_files_release() {
   [ "$(published)" = 'yubikey_manager-5.9.2-py3-none-any.whl' ]
 }
 
+@test 'yubico authenticator' {
+  run_signed_files_release yubico_authenticator 7.5.0 .sig \
+    yubico-authenticator-7.5.0-linux-arm64.tar.gz unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'yubico-authenticator-7.5.0-linux-arm64.tar.gz' ]
+}
+
 @test 'zeus' {
   run_release zeus v13.2.3 manifest-v13.2.3.txt manifest-v13.2.3.txt.sig \
     zeus-v13.2.3-universal.apk
