@@ -382,6 +382,13 @@ run_signed_files_release() {
   [ "$(published)" = 'nunchuk-linux-v2.9.2-x86_64.AppImage' ]
 }
 
+@test 'onionshare' {
+  run_signed_files_release onionshare v2.7.2 .asc \
+    OnionShare-win64-2.7.2.msi onionshare-2.7.2.tar.gz
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'OnionShare-win64-2.7.2.msi' ]
+}
+
 @test 'passport' {
   run_signed_files_release passport v2.3.11 .sig v2.3.11-passport.bin \
     v2.3.11-sha256
