@@ -13,6 +13,7 @@ setup_file() {
   sign_detached signer data.txt signer.sig
   sign_detached stranger data.txt stranger.sig
   sign_detached 'signer missing' data.txt signer-and-missing.sig
+  sign_detached 'missing signer' data.txt missing-and-signer.sig
   sign_clear signer data.txt signer.asc
   sign_clear stranger data.txt stranger.asc
 
@@ -75,6 +76,11 @@ setup() {
 
 @test "passes when another signer's key is missing" {
   run verify_gpg_signature signer-and-missing.sig data.txt "$signer"
+  [ "$status" -eq 0 ]
+}
+
+@test "passes when a missing key's signature comes before the listed key's" {
+  run verify_gpg_signature missing-and-signer.sig data.txt "$signer"
   [ "$status" -eq 0 ]
 }
 
