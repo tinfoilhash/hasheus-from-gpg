@@ -569,6 +569,13 @@ run_signed_files_release() {
   [ "$(published)" = 'Wasabi-2.8.4-arm64.AppImage' ]
 }
 
+@test 'yubikey manager' {
+  run_signed_files_release yubikey_manager 5.9.2 .sig \
+    yubikey_manager-5.9.2-py3-none-any.whl unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'yubikey_manager-5.9.2-py3-none-any.whl' ]
+}
+
 @test 'zeus' {
   run_release zeus v13.2.3 manifest-v13.2.3.txt manifest-v13.2.3.txt.sig \
     zeus-v13.2.3-universal.apk
