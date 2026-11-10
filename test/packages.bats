@@ -349,6 +349,13 @@ run_signed_files_release() {
   [ "$(published)" = 'freenet-build01507.jar' ]
 }
 
+@test 'keepassxc' {
+  run_signed_files_release keepassxc 2.8.0 .sig \
+    KeePassXC-2.8.0-aarch64.AppImage.zsync unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'KeePassXC-2.8.0-aarch64.AppImage.zsync' ]
+}
+
 @test 'keychat' {
   run_signed_files_release keychat v1.41.1+6513 .asc \
     Keychat-1.41.1+6513-linux-amd64.deb Keychat-1.41.1+6513-macos-arm64.dmg
