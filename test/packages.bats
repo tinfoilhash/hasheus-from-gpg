@@ -328,6 +328,14 @@ run_signed_files_release() {
   [ "$(published)" = 'Ginger-2.0.27.deb' ]
 }
 
+@test 'gopass' {
+  run_release gopass v1.17.4 gopass_1.17.4_SHA256SUMS \
+    gopass_1.17.4_SHA256SUMS.sig gopass-1.17.4-linux-arm64.tar.gz \
+    unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'gopass-1.17.4-linux-arm64.tar.gz' ]
+}
+
 @test 'haven' {
   run_release haven v1.2.2 checksums.txt checksums.txt.sig \
     haven_Darwin_arm64.tar.gz
