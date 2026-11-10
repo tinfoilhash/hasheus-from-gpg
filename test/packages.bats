@@ -447,6 +447,20 @@ run_signed_files_release() {
   [ "$(published)" = 'mullvad-browser-linux-x86_64-16.0.tar.xz' ]
 }
 
+@test 'mullvad vpn desktop' {
+  run_signed_files_release mullvad_vpn 2026.5 .asc \
+    MullvadVPN-2026.5_x64.exe latest.json
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'MullvadVPN-2026.5_x64.exe' ]
+}
+
+@test 'mullvad vpn android' {
+  run_signed_files_release mullvad_vpn android/2026.12 .asc \
+    MullvadVPN-2026.12.apk
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'MullvadVPN-2026.12.apk' ]
+}
+
 @test 'nunchuk android' {
   run_release nunchuk_android android.2.9.3 SHA256SUMS.asc SHA256SUMS.asc \
     2.9.3.apk SHA256SUMS
