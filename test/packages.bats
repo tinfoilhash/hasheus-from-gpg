@@ -286,6 +286,13 @@ run_signed_files_release() {
   [ "$(published)" = 'frigate_1.6.1_amd64.deb' ]
 }
 
+@test 'frostsnap' {
+  run_release frostsnap v0.4.1 CHECKSUMS CHECKSUMS.asc firmware.bin \
+    unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'firmware.bin' ]
+}
+
 @test 'fulcrum' {
   run_release fulcrum v2.1.3 Fulcrum-2.1.3-shasums.txt \
     Fulcrum-2.1.3-shasums.txt.asc Fulcrum-2.1.3-x86_64-linux.tar.gz
