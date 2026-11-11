@@ -63,6 +63,16 @@ prepare_librewolf() {
   [ -z "$(state_of librewolf)" ]
 }
 
+@test 'forgejo verifies signed codeberg release files' {
+  prepare_forgejo_release forgejo codeberg.org forgejo/forgejo v17.0.1 \
+    https://codeberg.org/forgejo/forgejo/releases/download/v17.0.1 .asc \
+    forgejo-17.0.1-linux-arm64.xz
+  run "$repo_dir/packages/forgejo/verify.sh"
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'forgejo-17.0.1-linux-arm64.xz' ]
+  [ "$(state_of forgejo)" = '2026-01-01T00:00:00Z' ]
+}
+
 @test 'forgejo rejects unsafe asset names before downloading files' {
   prepare_librewolf
   jaq '.assets[0].name = "../outside"' "$FAKE_ASSETS_JSON" > assets.new
