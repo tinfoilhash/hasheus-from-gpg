@@ -93,6 +93,57 @@ verify_signed_files_from_github() {
     "$signature_suffix" "${key_fingerprints[@]}"
 }
 
+verify_signed_checksums_from_github() {
+  local package_name="$1"
+  local repo="$2"
+  local checksum_suffix="$3"
+  local signature_suffix="$4"
+  shift 4
+  local key_fingerprints=("$@")
+
+  source_state "$package_name"
+  check_gpg_keys "${key_fingerprints[@]}"
+
+  verify_new_releases "$package_name" "$repo" verify_signed_checksums_release \
+    "$checksum_suffix" "$signature_suffix" "${key_fingerprints[@]}"
+}
+
+verify_signed_checksums_release() {
+  local name="$1"
+  local published_at="$2"
+  local release_assets="$3"
+  local asset_names="$4"
+  local checksum_suffix="$5"
+  local signature_suffix="$6"
+  shift 6
+  local key_fingerprints=("$@")
+
+  local filenames
+  filenames=$(signed_filenames "$asset_names" \
+    "$checksum_suffix$signature_suffix")
+  if [ -z "$filenames" ]; then
+    skip_release_without_files "$published_at" \
+      'signed checksum files do not exist'
+    return
+  fi
+
+  local filename
+  while IFS= read -r filename <&4; do
+    local url checksum_url signature_url
+    url=$(asset_details "$release_assets" "$filename") || exit 1
+    checksum_url=$(asset_details "$release_assets" \
+      "$filename$checksum_suffix") || exit 1
+    signature_url=$(asset_details "$release_assets" \
+      "$filename$checksum_suffix$signature_suffix") || exit 1
+    if [ -z "$checksum_url" ]; then
+      echo 'signed checksum file does not exist, exiting'
+      exit 1
+    fi
+    publish_from_signed_checksum "$filename" "${url%%,*}" \
+      "${checksum_url%%,*}" "${signature_url%%,*}" "${key_fingerprints[@]}"
+  done 4<<< "$filenames"
+}
+
 # calls the given function for each release published since the last run,
 # oldest first, with the release's name, date, assets (as gh's json), and asset
 # names, plus any further arguments. the release is recorded once it returns.

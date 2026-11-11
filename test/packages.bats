@@ -115,6 +115,32 @@ run_signed_files_release() {
   run "$repo_dir/packages/$package_name/verify.sh"
 }
 
+run_obtainium_release() {
+  create_repo obtainium
+  set_key_fingerprints obtainium "$(fingerprint_of signer)"
+  export FAKE_CURL_ROOT="$BATS_TEST_TMPDIR/site"
+  export FAKE_GH_ROOT="$FAKE_CURL_ROOT/github.example"
+  mkdir -p "$FAKE_GH_ROOT/v1.7.4"
+  cd "$FAKE_GH_ROOT/v1.7.4" || exit 1
+  echo 'apk contents' > app-arm64-v8a-release.apk
+  echo 'unsigned apk' > app-x86_64-release.apk
+  shasum -a 256 app-arm64-v8a-release.apk | cut -d ' ' -f 1 \
+    > app-arm64-v8a-release.apk.sha256
+  if [ -n "${SPLIT_CHECKSUM:-}" ]; then
+    awk '{ print substr($0, 1, 32); print substr($0, 33) }' \
+      app-arm64-v8a-release.apk.sha256 > checksum.new
+    mv checksum.new app-arm64-v8a-release.apk.sha256
+  fi
+  sign_detached "${CHECKSUM_SIGNER:-signer}" \
+    app-arm64-v8a-release.apk.sha256 app-arm64-v8a-release.apk.sha256.sig
+  if [ -n "${TAMPER_CHECKSUM_PAYLOAD:-}" ]; then
+    echo changed >> app-arm64-v8a-release.apk
+  fi
+  echo '[{"tagName":"v1.7.4","publishedAt":"2026-01-01T00:00:00Z"}]' \
+    > "$FAKE_GH_ROOT/releases.json"
+  run "$repo_dir/packages/obtainium/verify.sh"
+}
+
 @test 'amber' {
   ONE_SPACE_MANIFEST=1 run_release amber v6.6.9 \
     manifest-v6.6.9.txt manifest-v6.6.9.txt.sig amber-universal-v6.6.9.apk \
@@ -546,6 +572,26 @@ run_signed_files_release() {
   [ "$(published)" = 'OnionShare-win64-2.7.2.msi' ]
 }
 
+@test 'obtainium publishes the apk authenticated by its signed checksum' {
+  run_obtainium_release
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'app-arm64-v8a-release.apk' ]
+}
+
+@test 'obtainium does not publish an apk that fails its signed checksum' {
+  TAMPER_CHECKSUM_PAYLOAD=1 run_obtainium_release
+  [ "$status" -eq 1 ]
+  [ ! -f "$FAKE_HASHEUS_LOG" ]
+  [ "$(state_of obtainium)" = '2026-01-01T00:00:00Z' ]
+}
+
+@test 'obtainium retries a checksum signed by an unlisted key' {
+  CHECKSUM_SIGNER=stranger run_obtainium_release
+  [ "$status" -eq 1 ]
+  [ ! -f "$FAKE_HASHEUS_LOG" ]
+  [ -z "$(state_of obtainium)" ]
+}
+
 @test 'orbot release candidate' {
   local apk='Orbot-17.9.7-RC-1-tor-0.4.9.14-1-g0ea112a4d'
   apk="$apk-fullperm-arm64-v8a-release.apk"
@@ -717,4 +763,11 @@ run_signed_files_release() {
     zeus-v13.2.3-universal.apk
   [ "$status" -eq 0 ]
   [ "$(published)" = 'zeus-v13.2.3-universal.apk' ]
+}
+
+@test 'obtainium rejects a malformed checksum even with a valid signature' {
+  SPLIT_CHECKSUM=1 run_obtainium_release
+  [ "$status" -eq 1 ]
+  [ ! -f "$FAKE_HASHEUS_LOG" ]
+  [ -z "$(state_of obtainium)" ]
 }
