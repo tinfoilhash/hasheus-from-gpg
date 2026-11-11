@@ -84,6 +84,15 @@ HTML
   [ -z "$(state_of bdk_jvm)" ]
 }
 
+@test 'ldk node jvm reuses signed maven artifact discovery' {
+  prepare_maven_release ldk_node_jvm org/lightningdevkit ldk-node-jvm 0.7.0
+  run "$repo_dir/packages/ldk_node_jvm/verify.sh"
+  [ "$status" -eq 0 ]
+  local expected='ldk-node-jvm-0.7.0-sources.jar ldk-node-jvm-0.7.0.jar'
+  published_is "$expected ldk-node-jvm-0.7.0.pom"
+  [ "$(state_of ldk_node_jvm)" = '2026-10-06T00:16:00Z' ]
+}
+
 @test 'directory discovery does not use a folder without a valid date' {
   prepare_maven_release bdk_jvm org/bitcoindevkit bdk-jvm 3.1.1
   local index="$FAKE_CURL_ROOT/repo.maven.apache.org/maven2/org/bitcoindevkit"
