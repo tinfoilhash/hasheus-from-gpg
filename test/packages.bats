@@ -37,7 +37,12 @@ run_release() {
   cd "$release_dir" || exit 1
 
   echo "$asset" > "$asset"
-  shasum -a 256 "$asset" > "$BATS_TEST_TMPDIR/hashes"
+  shasum -a "${MANIFEST_ALGORITHM:-256}" "$asset" \
+    > "$BATS_TEST_TMPDIR/hashes"
+
+  if [ -n "${TAMPER_MANIFEST_PAYLOAD:-}" ]; then
+    echo changed >> "$asset"
+  fi
 
   # some projects, like amber, put one space between the hash and the name.
   # some, like mostro, list each file under the directory it was built in.
@@ -310,6 +315,29 @@ run_obtainium_release() {
     cryptomator-1.19.6-aarch64.AppImage.zsync unsigned.txt
   [ "$status" -eq 0 ]
   [ "$(published)" = 'cryptomator-1.19.6-aarch64.AppImage.zsync' ]
+}
+
+@test 'delta chat desktop checks sha512 and publishes a sha256 hash' {
+  export FAKE_HASHEUS_VERIFY_LOG="$BATS_TEST_TMPDIR/queried"
+  MANIFEST_ALGORITHM=512 run_release delta_chat_desktop v2.65.0 \
+    signed-checksums.txt signed-checksums.txt \
+    DeltaChat-2.65.0-x86_64.AppImage unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'DeltaChat-2.65.0-x86_64.AppImage' ]
+  local expected
+  expected=$(printf '%s\n' 'DeltaChat-2.65.0-x86_64.AppImage' \
+    | shasum -a 256 | cut -d ' ' -f 1)
+  [ "$(cut -d ' ' -f 1 "$FAKE_HASHEUS_LOG")" = "$expected" ]
+  [ "$(cat "$FAKE_HASHEUS_VERIFY_LOG")" = "$expected" ]
+}
+
+@test 'delta chat desktop does not publish a sha512 mismatch' {
+  MANIFEST_ALGORITHM=512 TAMPER_MANIFEST_PAYLOAD=1 \
+    run_release delta_chat_desktop v2.65.0 signed-checksums.txt \
+    signed-checksums.txt DeltaChat-2.65.0-x86_64.AppImage
+  [ "$status" -eq 1 ]
+  [ ! -f "$FAKE_HASHEUS_LOG" ]
+  [ "$(state_of delta_chat_desktop)" = '2026-01-01T00:00:00Z' ]
 }
 
 @test 'eclair' {

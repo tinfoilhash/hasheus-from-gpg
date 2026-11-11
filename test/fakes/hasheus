@@ -42,6 +42,10 @@ print_verification() {
 verify() {
   local hash="$1"
 
+  if [ -n "${FAKE_HASHEUS_VERIFY_LOG:-}" ]; then
+    echo "$hash" >> "$FAKE_HASHEUS_VERIFY_LOG"
+  fi
+
   case "${HASHEUS_PUBLIC_KEY:-}" in
     npub1*) ;;
     *) print_error invalid_user \

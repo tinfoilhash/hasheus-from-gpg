@@ -303,6 +303,12 @@ publish_file() {
   local shasum_line="$1"
   local url="$2"
   local content_type="${3:-}"
+  local algorithm="${4:-256}"
+
+  if [ "$algorithm" != 256 ] && [ "$algorithm" != 512 ]; then
+    echo 'unsupported manifest hash algorithm, exiting'
+    exit 1
+  fi
 
   local hash filename_shasum
   read -r hash filename_shasum <<< "$shasum_line"
@@ -317,7 +323,7 @@ publish_file() {
     check_line="$hash $filename_shasum"
   fi
 
-  if is_published_to_verify "$hash"; then
+  if [ "$algorithm" = 256 ] && is_published_to_verify "$hash"; then
     echo 'file already verified, skipping'
     return
   fi
@@ -335,12 +341,21 @@ publish_file() {
   echo "url: $url"
   echo "content type: $content_type"
 
-  if shasum --check --status <<< "$check_line"; then
+  if shasum -a "$algorithm" --check --status <<< "$check_line"; then
     echo 'verified: yes'
   else
     echo 'verified: no'
     skip_unverified_file "$filename"
     return
+  fi
+
+  if [ "$algorithm" != 256 ]; then
+    hash=$(shasum -a 256 -- "$filename") || exit 1
+    hash="${hash%% *}"
+    if is_published_to_verify "$hash"; then
+      echo 'file already verified, skipping'
+      return
+    fi
   fi
 
   echo '------- publishing event'
