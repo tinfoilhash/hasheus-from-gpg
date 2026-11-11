@@ -51,8 +51,10 @@ directory_releases() {
   entries=$(read_directory "$url") || return 1
   jaq --arg pattern "$pattern" --argjson limit "$limit" '
     [.[] | select(.name | test($pattern)) | {
-      tagName: (.name | rtrimstr("/")), publishedAt: .publishedAt
+      tagName: ((try (.name | capture($pattern).version) catch null)
+        // (.name | rtrimstr("/"))), publishedAt: .publishedAt
     } | if .publishedAt == null then error("missing release date") else . end]
+    | group_by(.tagName) | map(max_by(.publishedAt))
     | sort_by(.publishedAt) | reverse | .[:$limit]
   ' <<< "$entries"
 }
