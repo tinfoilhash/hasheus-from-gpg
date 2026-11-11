@@ -5,9 +5,16 @@
 
 url=''
 output_filename=''
+head_only=false
+write_status=false
 
 while [ $# -gt 0 ]; do
   case "$1" in
+    --head | -I) head_only=true ;;
+    --write-out | -w)
+      write_status=true
+      shift
+      ;;
     -o)
       output_filename="$2"
       shift
@@ -24,6 +31,30 @@ if [[ "$path" == */ ]]; then
   path+='index.html'
 fi
 filename="${url##*/}"
+
+if [ -n "${FAKE_CURL_REQUEST_LOG:-}" ]; then
+  echo "$url" >> "$FAKE_CURL_REQUEST_LOG"
+fi
+
+if [ "$write_status" = true ]; then
+  if [ -n "${FAKE_CURL_TRANSPORT_FAIL:-}" ] \
+    && [ "$filename" = "$FAKE_CURL_TRANSPORT_FAIL" ]; then
+    exit 28
+  fi
+  if [ -n "${FAKE_CURL_STATUS_FILE:-}" ] \
+    && [ "$filename" = "$FAKE_CURL_STATUS_FILE" ]; then
+    echo "${FAKE_CURL_STATUS:-503}"
+  elif [ ! -f "$path" ]; then
+    echo 404
+  else
+    echo 200
+  fi
+  exit
+fi
+
+if [ "$head_only" = true ]; then
+  path+='.headers'
+fi
 
 if [ -n "${FAKE_CURL_FAIL:-}" ] && [ "$filename" = "$FAKE_CURL_FAIL" ] \
   || [ ! -f "$path" ]; then

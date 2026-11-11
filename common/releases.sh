@@ -380,6 +380,33 @@ verify_signed_files_release() {
   shift 5
   local key_fingerprints=("$@")
 
+  # synthesized signatures are not listed by the server. only a confirmed
+  # absence follows the upload window; network and server errors must retry.
+  local signature_urls
+  signature_urls=$(jaq -r '
+    .assets[] | select(.checkAvailability == true) | .url
+  ' <<< "$release_assets") || exit 1
+  if [ -n "$signature_urls" ]; then
+    local signature_url
+    while IFS= read -r signature_url <&4; do
+      local status
+      status=$(curl -sSL --head --max-time 60 -o /dev/null \
+        --write-out '%{http_code}' "$signature_url") || exit 1
+      case "$status" in
+        2[0-9][0-9]) ;;
+        404)
+          skip_release_without_files "$published_at" \
+            'signature file does not exist'
+          return
+          ;;
+        *)
+          echo "signature availability check returned http $status, exiting"
+          exit 1
+          ;;
+      esac
+    done 4<<< "$signature_urls"
+  fi
+
   local signed_asset_names
   signed_asset_names=$(signed_filenames "$asset_names" "$signature_suffix")
 
