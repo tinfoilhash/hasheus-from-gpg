@@ -117,6 +117,14 @@ run_signed_files_release() {
     '[{ tagName: $tag, publishedAt: "2026-01-01T00:00:00Z" }]' \
     > "$FAKE_GH_ROOT/releases.json"
 
+  if [ -n "${PREPEND_PRERELEASES:-}" ]; then
+    jaq '[range(1; 5) | {
+      tagName: "2.0.0b\(.)", publishedAt: "2026-02-01T00:00:00Z",
+      isPrerelease: true
+    }] + .' "$FAKE_GH_ROOT/releases.json" > releases.new
+    mv releases.new "$FAKE_GH_ROOT/releases.json"
+  fi
+
   run "$repo_dir/packages/$package_name/verify.sh"
 }
 
@@ -243,6 +251,14 @@ run_obtainium_release() {
   run_signed_files_release bluewallet v8.0.2 .sig BlueWallet-8.0.2.apk
   [ "$status" -eq 0 ]
   [ "$(published)" = 'BlueWallet-8.0.2.apk' ]
+}
+
+@test 'borgbackup selects signed stable releases before limiting results' {
+  PREPEND_PRERELEASES=1 run_signed_files_release borgbackup 1.4.5 .asc \
+    borgbackup-1.4.5.tar.gz unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'borgbackup-1.4.5.tar.gz' ]
+  [ "$(state_of borgbackup)" = '2026-01-01T00:00:00Z' ]
 }
 
 @test 'btcd' {
