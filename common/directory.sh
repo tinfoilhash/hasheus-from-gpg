@@ -49,6 +49,11 @@ directory_releases() {
   local pattern="$2"
   local entries
   entries=$(read_directory "$url") || return 1
+  releases_from_directory_entries "$pattern" <<< "$entries"
+}
+
+releases_from_directory_entries() {
+  local pattern="$1"
   jaq --arg pattern "$pattern" --argjson limit "$limit" '
     [.[] | select(.name | test($pattern)) | {
       tagName: ((try (.name | capture($pattern).version) catch null)
@@ -56,7 +61,7 @@ directory_releases() {
     } | if .publishedAt == null then error("missing release date") else . end]
     | group_by(.tagName) | map(max_by(.publishedAt))
     | sort_by(.publishedAt) | reverse | .[:$limit]
-  ' <<< "$entries"
+  '
 }
 
 directory_assets() {
@@ -76,4 +81,58 @@ list_releases() {
 
 list_release_assets() {
   directory_assets "${1%/}/$2/"
+}
+
+# recurse only through safe relative folders from read_directory; never follow
+# arbitrary URLs or silently omit files beyond the supported nesting depth.
+directory_tree_assets() {
+  local url="${1%/}/"
+  local depth="${2:-0}"
+  local entries assets folders
+  entries=$(read_directory "$url") || return 1
+  assets=$(jaq --arg url "$url" '[.[]
+    | select(.name | endswith("/") | not)
+    | . + {url: ($url + .name), contentType: ""}]' <<< "$entries") \
+    || return 1
+  folders=$(jaq -r '.[] | .name | select(endswith("/"))' <<< "$entries") \
+    || return 1
+  if [ -n "$folders" ] && [ "$depth" -ge 5 ]; then
+    echo 'download directory nesting exceeds supported depth' >&2
+    return 1
+  fi
+  local folder
+  while IFS= read -r folder <&5; do
+    [ -n "$folder" ] || continue
+    local child
+    child=$(directory_tree_assets "$url$folder" "$((depth + 1))") \
+      || return 1
+    assets=$(jaq --argjson child "$child" '. + $child.assets' \
+      <<< "$assets") || return 1
+  done 5<<< "$folders"
+  jaq '{assets: .}' <<< "$assets"
+}
+
+# recursive indexes can repeat a filename in several architecture folders.
+# pair each payload with its own URL's signature instead of joining by name.
+verify_signed_files_release() {
+  local published_at="$2"
+  local release_assets="$3"
+  local signature_suffix="$5"
+  shift 5
+  local jobs
+  jobs=$(jaq -r --arg suffix "$signature_suffix" '
+    .assets as $assets | $assets[] as $file
+    | $assets[] | select(.url == ($file.url + $suffix))
+    | "\($file.name),\($file.url),\(.url),\($file.contentType)"
+  ' <<< "$release_assets") || return 1
+  if [ -z "$jobs" ]; then
+    skip_release_without_files "$published_at" 'signed files do not exist'
+    return
+  fi
+  local filename url signature_url content_type
+  while IFS=',' read -r filename url signature_url content_type <&4; do
+    publish_signed_file "$filename" "$url" "$signature_url" "$content_type" \
+      '' "$@"
+    rm -f "$filename" "$filename$signature_suffix" || return 1
+  done 4<<< "$jobs"
 }
