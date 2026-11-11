@@ -548,6 +548,15 @@ ncryptsec, exiting"* ]]
     'application/octet-stream' ]
 }
 
+@test 'publishes the file type when the asset type is not a mime type' {
+  write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
+
+  FAKE_GH_CONTENT_TYPE=raw run_package clearsigned
+
+  [ "$status" -eq 0 ]
+  [ "$(cut -d ' ' -f 3 "$FAKE_HASHEUS_LOG" | grep -c -v /)" -eq 0 ]
+}
+
 @test 'publishes and records nothing in a dry run with only the public key' {
   write_package 'SHA256SUMS.asc' 'SHA256SUMS.asc' < /dev/null
   unset HASHEUS_SECRET_KEY
@@ -583,6 +592,16 @@ ncryptsec, exiting"* ]]
   published_is app-v1.dmg app-v1.exe app-v2.dmg app-v2.exe
   [ "$(state_of test)" = '2026-02-01T00:00:00Z' ]
   [ -z "$(leftover_files test)" ]
+}
+
+@test 'publishes the signed file type when the asset type is not a mime type' {
+  write_signed_files_package
+
+  FAKE_GH_CONTENT_TYPE=raw run_package signed-files
+
+  [ "$status" -eq 0 ]
+  published_is app-v1.dmg app-v1.exe app-v2.dmg app-v2.exe
+  [ "$(cut -d ' ' -f 3 "$FAKE_HASHEUS_LOG" | grep -c -v /)" -eq 0 ]
 }
 
 @test 'skips and records a release with no signed files' {
