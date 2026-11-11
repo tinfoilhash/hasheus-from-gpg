@@ -146,7 +146,8 @@ verify_signed_checksums_release() {
 
 # calls the given function for each release published since the last run,
 # oldest first, with the release's name, date, assets (as gh's json), and asset
-# names, plus any further arguments. the release is recorded once it returns.
+# names, plus any further arguments. tied dates are recorded together so a
+# retry cannot lose another release with the same timestamp.
 verify_new_releases() {
   local package_name="$1"
   local repo="$2"
@@ -163,7 +164,7 @@ verify_new_releases() {
   local new_releases
   new_releases=$(jaq -r --arg since "$last_release_published_at" '
     map(select(.publishedAt > $since))
-    | reverse
+    | sort_by(.publishedAt)
     | .[]
     | "\(.tagName),\(.publishedAt)"
   ' <<< "$releases") || exit 1
@@ -181,29 +182,43 @@ verify_new_releases() {
     echo "- $name ($published_at)"
   done <<< "$new_releases"
 
-  # read from a separate file descriptor so the loop runs in this shell (letting
-  # `exit` stop the script) and nothing inside it can consume the list.
-  while IFS=',' read -r name published_at <&3; do
-    echo "----- new release: $name ($published_at)"
+  local release_groups
+  release_groups=$(jaq -c --arg since "$last_release_published_at" '
+    map(select(.publishedAt > $since))
+    | group_by(.publishedAt) | .[] | sort_by(.tagName)
+  ' <<< "$releases") || exit 1
 
-    echo '------- getting list of assets'
-
-    local release_assets
-    release_assets=$(list_release_assets "$repo" "$name") || exit 1
-
-    local asset_names
-    asset_names=$(jaq -r '.assets[].name' <<< "$release_assets") || exit 1
-    asset_names=$(sort <<< "$asset_names")
-
+  local group
+  while IFS= read -r group <&3; do
+    local published_at
+    published_at=$(jaq -r '.[0].publishedAt' <<< "$group") || exit 1
     start_release "$published_at"
 
-    # the function exits on any failure, but a return that isn't 0 still stops
-    # the release from being recorded.
-    "$verify_release" "$name" "$published_at" "$release_assets" \
-      "$asset_names" "$@" || exit 1
+    local group_releases
+    group_releases=$(jaq -r '.[].tagName' <<< "$group") || exit 1
+    local name
+    while IFS= read -r name <&5; do
+      echo "----- new release: $name ($published_at)"
+      echo '------- getting list of assets'
+
+      local release_assets
+      release_assets=$(list_release_assets "$repo" "$name") || exit 1
+
+      local asset_names
+      asset_names=$(jaq -r '.assets[].name' <<< "$release_assets") || exit 1
+      asset_names=$(sort <<< "$asset_names")
+
+      local item_dir
+      item_dir=$(mktemp -d "$release_dir/item.XXXXXX") || exit 1
+      cd "$item_dir" || exit 1
+      "$verify_release" "$name" "$published_at" "$release_assets" \
+        "$asset_names" "$@" || exit 1
+      cd "$release_dir" || exit 1
+      rm -r "$item_dir"
+    done 5<<< "$group_releases"
 
     complete_release "$package_name" "$published_at"
-  done 3<<< "$new_releases"
+  done 3<<< "$release_groups"
 }
 
 is_recent_release() {
