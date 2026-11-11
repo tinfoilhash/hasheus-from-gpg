@@ -716,6 +716,25 @@ run_obtainium_release() {
   [ "$(published)" = 'rclone-v1.76.0-linux-amd64.zip' ]
 }
 
+@test 'ride the lightning verifies the generated github source archive' {
+  create_repo ride_the_lightning
+  set_key_fingerprints ride_the_lightning "$(fingerprint_of signer)"
+  export FAKE_CURL_ROOT="$BATS_TEST_TMPDIR/site"
+  export FAKE_GH_ROOT="$FAKE_CURL_ROOT/github.example"
+  local archive_dir="$FAKE_CURL_ROOT/github.com/Ride-The-Lightning/RTL"
+  archive_dir="$archive_dir/archive/refs/tags"
+  mkdir -p "$FAKE_GH_ROOT/v0.15.17" "$archive_dir"
+  echo 'source archive' > "$archive_dir/v0.15.17.tar.gz"
+  sign_detached signer "$archive_dir/v0.15.17.tar.gz" \
+    "$FAKE_GH_ROOT/v0.15.17/v0.15.17.tar.gz.asc"
+  echo 'unsigned metadata' > "$FAKE_GH_ROOT/v0.15.17/metadata.json"
+  echo '[{"tagName":"v0.15.17","publishedAt":"2026-01-01T00:00:00Z"}]' \
+    > "$FAKE_GH_ROOT/releases.json"
+  run "$repo_dir/packages/ride_the_lightning/verify.sh"
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'v0.15.17.tar.gz' ]
+}
+
 @test 'robosats' {
   run_signed_files_release robosats v0.8.7-alpha .asc \
     robosats-v0.8.7.alpha-universal.017de9a.apk
