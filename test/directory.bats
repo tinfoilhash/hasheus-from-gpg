@@ -92,6 +92,33 @@ prepare_nextcloud_server() {
   echo '</table></html>' >> "$base/index.html"
 }
 
+prepare_nextcloud_desktop() {
+  create_repo nextcloud_desktop
+  set_key_fingerprints nextcloud_desktop "$(fingerprint_of signer)"
+  export FAKE_CURL_ROOT="$BATS_TEST_TMPDIR/site"
+  local root="$FAKE_CURL_ROOT/download.nextcloud.com/desktop/releases"
+  mkdir -p "$root/Linux" "$root/Mac/Installer" "$root/Windows"
+  echo '<table><tr><td><a href="Linux/">linux</a></td></tr>
+<tr><td><a href="Mac/">mac</a></td></tr>
+<tr><td><a href="Windows/">windows</a></td></tr></table>' > "$root/index.html"
+  echo '<table><tr><td><a href="Installer/">pkg</a></td></tr></table>' \
+    > "$root/Mac/index.html"
+  local platform
+  for platform in Linux Mac/Installer Windows; do
+    # repeat a basename to ensure both URLs are checked, not just the first.
+    local filename=Nextcloud-35.0.3.pkg
+    echo "$platform" > "$root/$platform/$filename"
+    sign_detached signer "$root/$platform/$filename" \
+      "$root/$platform/$filename.asc"
+    cat > "$root/$platform/index.html" << HTML
+<table><tr><td><a href="$filename">file</a></td>
+<td>2026-10-06 00:16</td></tr>
+<tr><td><a href="$filename.asc">sig</a></td>
+<td>2026-10-06 00:16</td></tr></table>
+HTML
+  done
+}
+
 @test 'bdk jvm verifies signed maven artifacts and sources' {
   prepare_maven_release bdk_jvm org/bitcoindevkit bdk-jvm 3.1.1
   run "$repo_dir/packages/bdk_jvm/verify.sh"
@@ -218,4 +245,29 @@ HTML
   run "$repo_dir/packages/nextcloud_server/verify.sh"
   [ "$status" -eq 1 ]
   [ "$(state_of nextcloud_server)" = '2026-10-07T00:16:00Z' ]
+}
+
+@test 'nextcloud desktop checks every platform with repeated filenames' {
+  prepare_nextcloud_desktop
+  run "$repo_dir/packages/nextcloud_desktop/verify.sh"
+  [ "$status" -eq 0 ]
+  [ "$(wc -l < "$FAKE_HASHEUS_LOG" | tr -d ' ')" = 3 ]
+  [ "$(state_of nextcloud_desktop)" = '2026-10-06T00:16:00Z' ]
+  [ -z "$(leftover_files nextcloud_desktop)" ]
+}
+
+@test 'recursive discovery fails rather than truncate deep folders' {
+  prepare_nextcloud_desktop
+  local root="$FAKE_CURL_ROOT/download.nextcloud.com/desktop/releases"
+  local depth
+  for depth in 1 2 3 4 5 6; do
+    echo '<table><tr><td><a href="nested/">nested</a></td></tr></table>' \
+      > "$root/index.html"
+    root+='/nested'
+    mkdir -p "$root"
+  done
+  run "$repo_dir/packages/nextcloud_desktop/verify.sh"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'nesting exceeds supported depth'* ]]
+  [ -z "$(state_of nextcloud_desktop)" ]
 }
