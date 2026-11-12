@@ -30,6 +30,10 @@ matching_asset_names() {
   done <<< "$asset_names"
 }
 
+parse_release_manifest() {
+  cat
+}
+
 download_asset() {
   local release_assets="$1"
   local filename="$2"
@@ -256,6 +260,8 @@ verify_manifest_release() {
   else
     shasum_manifest=$(gpg --decrypt "$shasum_signature_filename" 2> /dev/null)
   fi
+
+  shasum_manifest=$(parse_release_manifest <<< "$shasum_manifest") || exit 1
 
   # download each file only after the signature verifies and only if it isn't
   # published yet, since a release can be several gb.

@@ -49,6 +49,12 @@ run_release() {
     sed -i.bak 's/  / /' "$BATS_TEST_TMPDIR/hashes"
   fi
 
+  if [ -n "${SEED_TOOL_MANIFEST:-}" ]; then
+    awk '{ print "sha256sum " $2 " " $1 }' "$BATS_TEST_TMPDIR/hashes" \
+      > "$BATS_TEST_TMPDIR/hashes.new"
+    mv "$BATS_TEST_TMPDIR/hashes.new" "$BATS_TEST_TMPDIR/hashes"
+  fi
+
   # some, like alby hub, list the manifest itself with an empty file's hash.
   if [ -n "${SELF_LISTED_MANIFEST:-}" ]; then
     shasum -a 256 /dev/null | sed "s| .*|  ./$manifest|" \
@@ -171,6 +177,21 @@ run_signed_files_release() {
     Bitcoin-Safe-2.1.3-x86_64.AppImage.tar.gz
   [ "$status" -eq 0 ]
   [ "$(published)" = 'Bitcoin-Safe-2.1.3-x86_64.AppImage.tar.gz' ]
+}
+
+@test 'bitcoin seed tool' {
+  SEED_TOOL_MANIFEST=1 run_release bitcoin_seed_tool 2.4.1 \
+    signature.txt signature.txt index.html unsigned.txt
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'index.html' ]
+}
+
+@test 'bitcoin seed tool rejects an unexpected signed filename' {
+  SEED_TOOL_MANIFEST=1 run_release bitcoin_seed_tool 2.4.1 \
+    signature.txt signature.txt unexpected.html
+  [ "$status" -eq 1 ]
+  [ ! -f "$FAKE_HASHEUS_LOG" ]
+  [ -z "$(state_of bitcoin_seed_tool)" ]
 }
 
 @test 'blockstream green' {
