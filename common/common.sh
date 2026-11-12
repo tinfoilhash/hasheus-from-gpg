@@ -446,6 +446,45 @@ has_bad_signature() {
     2> /dev/null | grep -q '^\[GNUPG:\] BADSIG '
 }
 
+publish_from_signed_checksum() {
+  local filename="$1"
+  local url="$2"
+  local checksum_url="$3"
+  local signature_url="$4"
+  shift 4
+  local key_fingerprints=("$@")
+
+  if [[ ! "$filename" =~ ^[A-Za-z0-9][A-Za-z0-9._+-]*$ ]]; then
+    echo 'invalid checksum filename, exiting'
+    exit 1
+  fi
+
+  local checksum_filename="$filename.sha256"
+  local signature_filename="$checksum_filename.sig"
+  download_file "$checksum_url" "$checksum_filename" || exit 1
+  download_file "$signature_url" "$signature_filename" || exit 1
+
+  if ! verify_gpg_signature "$signature_filename" "$checksum_filename" \
+    "${key_fingerprints[@]}"; then
+    if has_bad_signature "$signature_filename" "$checksum_filename"; then
+      skip_unverified_file "$filename"
+      return
+    fi
+    echo 'checksum signature verification failed, exiting'
+    exit 1
+  fi
+
+  local hash
+  hash=$(< "$checksum_filename")
+  hash="${hash%$'\r'}"
+  if [[ ! "$hash" =~ ^[0-9a-fA-F]{64}$ ]]; then
+    echo 'invalid signed sha256 checksum, exiting'
+    exit 1
+  fi
+
+  publish_file "$hash  $filename" "$url"
+}
+
 # a file that fails its hash check or has a bad signature isn't what the
 # project published or signed, so it's theirs to fix (a failed download fails
 # before the check). it's never published, but it doesn't stop the run, so one
