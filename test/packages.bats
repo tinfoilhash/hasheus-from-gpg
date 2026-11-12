@@ -834,3 +834,10 @@ run_obtainium_release() {
   [ ! -f "$FAKE_HASHEUS_LOG" ]
   [ -z "$(state_of obtainium)" ]
 }
+
+@test 'simplex chat' {
+  NESTED_MANIFEST=1 run_release simplex_chat v7.0.3 \
+    _sha256sums _sha256sums.asc simplex-chat-ubuntu-24_04-x86_64.deb
+  [ "$status" -eq 0 ]
+  published_is simplex-chat-ubuntu-24_04-x86_64.deb
+}
