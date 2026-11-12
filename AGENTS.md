@@ -9,7 +9,9 @@ each package script checks a project's new releases: it downloads the release's 
 ## layout
 
 - `common/common.sh`: shared steps (dependency and key checks, state, signature verification, relay queries, publishing, downloads).
-- `common/github.sh`: the flows for packages that publish on github releases: `verify_from_github` for a signed manifest, and `verify_signed_files_from_github` for a signature on each file. both run each new release through `verify_new_releases`.
+- `common/releases.sh`: shared release processing, signed manifests, and signed files, using normalized release and asset lists.
+- `common/forgejo.sh`: release discovery from forgejo instances, including codeberg and librewolf.dev.
+- `common/github.sh`: the adapter for packages that publish on github releases: `verify_from_github` for a signed manifest, and `verify_signed_files_from_github` for a signature on each file. both run each new release through `verify_new_releases`.
 - `packages/<name>/verify.sh`: one script per package. most are a few lines of config for one of the github flows; bitcoin core, coldcard, and electrum have their own flows. electrum reuses `publish_signed_file` from the per-file github flow.
 - `verify_all.sh`: runs every package script.
 - `check_keys.sh`: audits the listed keys, and imports them with `--import`.

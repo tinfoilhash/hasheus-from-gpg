@@ -16,6 +16,8 @@ key_fingerprints=(
 )
 shasum_filename_pattern='signed-checksums.txt'
 shasum_signature_filename_pattern="$shasum_filename_pattern"
+# used by common/releases.sh through the github adapter.
+# shellcheck disable=SC2034
 manifest_hash_algorithm=512
 
 verify_from_github "$package_name" "$repo" \
