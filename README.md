@@ -23,6 +23,8 @@ in the future, the hope is that the authors of these packages start publishing d
 
 the [scheduled run](scheduled_run/README.md) also needs [git](https://git-scm.com/) and [perl](https://www.perl.org/), and an ai's cli. curl, file, perl, shasum, and xmllint come with macos, and git with its command line tools. gh must be logged in (`gh auth login`, or set `GH_TOKEN`).
 
+ashigaru serves its files only over tor, so it also needs [tor](https://www.torproject.org/) running as a socks proxy on `127.0.0.1:9050` (`brew install tor && brew services start tor` on macos), or another socks5h proxy set in `ASHIGARU_TOR_PROXY`, like `socks5h://127.0.0.1:9150` for tor browser.
+
 ### import gpg keys
 
 each `verify.sh` script lists the fingerprints of the keys it trusts, each with the url it's published at. to import them all from those urls:
