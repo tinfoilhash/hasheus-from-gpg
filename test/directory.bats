@@ -1,5 +1,8 @@
 #!/usr/bin/env bats
 
+# bats runs each test with its own fixture environment.
+# shellcheck disable=SC2030,SC2031
+
 # shellcheck source=test/test_helper.bash
 source "$BATS_TEST_DIRNAME/test_helper.bash"
 
@@ -64,6 +67,29 @@ HTML
 </pre>
 HTML
   set_state bdk_jvm '2026-10-05T00:00:00Z'
+}
+
+prepare_nextcloud_server() {
+  create_repo nextcloud_server
+  set_key_fingerprints nextcloud_server "$(fingerprint_of signer)"
+  export FAKE_CURL_ROOT="$BATS_TEST_TMPDIR/site"
+  local base="$FAKE_CURL_ROOT/download.nextcloud.com/server/releases"
+  mkdir -p "$base"
+  echo '<html><table><tr><th>name</th></tr>' > "$base/index.html"
+  local version suffix day=6
+  for version in 32.0.0 32.0.1 32.0.2; do
+    for suffix in tar.bz2 zip; do
+      local filename="nextcloud-$version.$suffix"
+      echo "$filename" > "$base/$filename"
+      sign_detached signer "$base/$filename" "$base/$filename.asc"
+      echo "<tr><td><a href=\"$filename\">$filename</a></td>" \
+        "<td>2026-10-0$day 00:16</td></tr>" >> "$base/index.html"
+      echo "<tr><td><a href=\"$filename.asc\">sig</a></td>" \
+        "<td>2026-10-0$day 00:16</td></tr>" >> "$base/index.html"
+    done
+    day=$((day + 1))
+  done
+  echo '</table></html>' >> "$base/index.html"
 }
 
 @test 'bdk jvm verifies signed maven artifacts and sources' {
@@ -171,4 +197,25 @@ HTML
   [ "$status" -eq 0 ]
   [ "$(state_of bdk_jvm)" != '2026-10-05T00:00:00Z' ]
   [ "$(wc -l < "$FAKE_HASHEUS_LOG" | tr -d ' ')" -eq 4 ]
+}
+
+@test 'nextcloud server groups all formats before limiting releases' {
+  prepare_nextcloud_server
+  run "$repo_dir/packages/nextcloud_server/verify.sh"
+  [ "$status" -eq 0 ]
+  local expected='nextcloud-32.0.0.tar.bz2 nextcloud-32.0.0.zip'
+  expected+=' nextcloud-32.0.1.tar.bz2 nextcloud-32.0.1.zip'
+  expected+=' nextcloud-32.0.2.tar.bz2 nextcloud-32.0.2.zip'
+  published_is "$expected"
+  [ "$(state_of nextcloud_server)" = '2026-10-08T00:16:00Z' ]
+}
+
+@test 'nextcloud server leaves an unverified release pending' {
+  prepare_nextcloud_server
+  local base="$FAKE_CURL_ROOT/download.nextcloud.com/server/releases"
+  sign_detached stranger "$base/nextcloud-32.0.2.zip" \
+    "$base/nextcloud-32.0.2.zip.asc"
+  run "$repo_dir/packages/nextcloud_server/verify.sh"
+  [ "$status" -eq 1 ]
+  [ "$(state_of nextcloud_server)" = '2026-10-07T00:16:00Z' ]
 }
