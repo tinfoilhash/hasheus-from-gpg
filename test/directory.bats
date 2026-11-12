@@ -271,3 +271,38 @@ HTML
   [[ "$output" == *'nesting exceeds supported depth'* ]]
   [ -z "$(state_of nextcloud_desktop)" ]
 }
+
+@test 'tor browser verifies signed downloads for every os and architecture' {
+  create_repo tor_browser
+  set_key_fingerprints tor_browser "$(fingerprint_of signer)"
+  export FAKE_CURL_ROOT="$BATS_TEST_TMPDIR/site"
+  local root="$FAKE_CURL_ROOT/dist.torproject.org/torbrowser"
+  mkdir -p "$root/16.0.2"
+  echo '<pre><a href="16.0.2/">16.0.2/</a> 2026-10-06 00:16 -
+</pre>' > "$root/index.html"
+  local files=(tor-browser-linux-x86_64-16.0.2.tar.xz
+    tor-browser-linux-aarch64-16.0.2.tar.xz
+    tor-browser-windows-x86_64-portable-16.0.2.exe
+    tor-browser-macos-16.0.2.dmg)
+  local filename
+  cd "$root/16.0.2" || exit 1
+  for filename in "${files[@]}"; do
+    echo "$filename" > "$filename"
+  done
+  shasum -a 256 "${files[@]}" > sha256sums-signed-build.txt
+  sign_detached signer sha256sums-signed-build.txt \
+    sha256sums-signed-build.txt.asc
+  echo '<pre>' > index.html
+  for filename in "${files[@]}" sha256sums-signed-build.txt \
+    sha256sums-signed-build.txt.asc; do
+    echo "<a href=\"$filename\">$filename</a> 2026-10-06 00:16 10" \
+      >> index.html
+  done
+  echo '</pre>' >> index.html
+  run "$repo_dir/packages/tor_browser/verify.sh"
+  [ "$status" -eq 0 ]
+  local expected
+  expected=$(printf '%s\n' "${files[@]}" | sort | tr '\n' ' ')
+  published_is "${expected% }"
+  [ "$(state_of tor_browser)" = '2026-10-06T00:16:00Z' ]
+}
