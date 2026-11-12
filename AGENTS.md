@@ -10,6 +10,7 @@ each package script checks a project's new releases: it downloads the release's 
 
 - `common/common.sh`: shared steps (dependency and key checks, state, signature verification, relay queries, publishing, downloads).
 - `common/releases.sh`: shared release processing, signed manifests, and signed files, using normalized release and asset lists.
+- `common/directory.sh`: dated download-index discovery for maven central and other official download sites.
 - `common/forgejo.sh`: release discovery from forgejo instances, including codeberg and librewolf.dev.
 - `common/github.sh`: the adapter for packages that publish on github releases: `verify_from_github` for a signed manifest, and `verify_signed_files_from_github` for a signature on each file. both run each new release through `verify_new_releases`.
 - `packages/<name>/verify.sh`: one script per package. most are a few lines of config for one of the github flows; bitcoin core, coldcard, and electrum have their own flows. electrum reuses `publish_signed_file` from the per-file github flow.
@@ -33,11 +34,11 @@ each package script checks a project's new releases: it downloads the release's 
 ## rules the code keeps
 
 - **fail closed.** only verified files are published. a release whose manifest fails its signature check (or, signing each file, a file whose signature isn't from a listed key) stops the package's run without being recorded, so it's retried (usually once the signer's key is listed). a download or relay failure does the same. a file that fails its hash check or has a bad signature (`has_bad_signature`) is skipped instead, since no key fixes it and one bad file shouldn't block the rest: the release is recorded, then the run exits 1 so it's reported once, and later releases are checked on the next run. see `skip_unverified_file`. a release with no manifest or signature file (or, signing each file, no signed files) is skipped and recorded, unless it was published in the last day: projects can publish a release before uploading its files, so the run stops there without recording it (exiting 0), and the next run tries again. see `skip_release_without_files`.
-- **a release is recorded only after all of its files are published or skipped.** never write state before that.
+- **a release is recorded only after all of its files are published or skipped.** releases sharing a timestamp are recorded together, after all finish, so a retry cannot lose a tied release. never write state before that.
 - **a signature counts only if** it's from a listed key (by primary or signing subkey fingerprint), the key isn't revoked, and it was made before the key's expiry date. see `verify_gpg_signature`.
 - **remote data is untrusted.** release names and dates come from the projects' sites and apis: pass them to jaq with `--arg`, never interpolate them into a program; never use a release name as a directory (each release downloads into a fresh `mktemp` directory); and validate dates before use (`is_valid_published_at`). the state file is parsed, never sourced.
 - **don't hide failures.** split `local x; x=$(…) || exit 1`, since `local x=$(…)` discards the exit status, and use `set -o pipefail` inside a `$(…)` when a pipeline's earlier commands can fail.
-- **loops over releases and their files read from fd 3 and 4** (`while read … <&3; do …; done 3<<< "$list"`), so they run in the main shell (`exit` stops the script) and nothing inside can read the list from stdin.
+- **loops over release groups, releases and files read from fd 3, 5 and 4** (`while read … <&3; do …; done 3<<< "$list"`), so they run in the main shell (`exit` stops the script) and nothing inside can read the list from stdin.
 
 ## adding or changing a package
 
