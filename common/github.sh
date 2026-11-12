@@ -353,7 +353,8 @@ verify_manifest_release() {
     local url content_type
     IFS=',' read -r url content_type <<< "$release_asset"
 
-    publish_file "$shasum_line" "$url" "$content_type"
+    publish_file "$shasum_line" "$url" "$content_type" \
+      "${manifest_hash_algorithm:-256}"
   done 4<<< "$shasum_manifest"
 }
 
