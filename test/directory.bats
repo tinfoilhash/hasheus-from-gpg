@@ -158,7 +158,7 @@ HTML
   [ -z "$(state_of bdk_jvm)" ]
 }
 
-@test 'directory discovery understands apache, openwrt and whonix dates' {
+@test 'directory discovery understands every listing date format' {
   create_repo bdk_jvm
   # shellcheck source=common/directory.sh
   source "$repo_dir/common/directory.sh"
