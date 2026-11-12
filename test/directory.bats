@@ -306,3 +306,31 @@ HTML
   published_is "${expected% }"
   [ "$(state_of tor_browser)" = '2026-10-06T00:16:00Z' ]
 }
+
+@test 'qubes groups signed iso architectures and digest files by release' {
+  create_repo qubes_os
+  set_key_fingerprints qubes_os "$(fingerprint_of signer)"
+  export FAKE_CURL_ROOT="$BATS_TEST_TMPDIR/site"
+  local root="$FAKE_CURL_ROOT/mirrors.edge.kernel.org/qubes/iso"
+  mkdir -p "$root"
+  echo '<pre>' > "$root/index.html"
+  local version arch suffix
+  for version in 4.3.1 4.3.2-rc1 4.3.2; do
+    for arch in x86_64 aarch64; do
+      for suffix in iso iso.DIGESTS; do
+        local filename="Qubes-R$version-$arch.$suffix"
+        echo "$filename" > "$root/$filename"
+        sign_detached signer "$root/$filename" "$root/$filename.asc"
+        echo "<a href=\"$filename\">$filename</a> 06-Oct-2026 00:16 10" \
+          >> "$root/index.html"
+        echo "<a href=\"$filename.asc\">sig</a> 06-Oct-2026 00:16 10" \
+          >> "$root/index.html"
+      done
+    done
+  done
+  echo '</pre>' >> "$root/index.html"
+  run "$repo_dir/packages/qubes_os/verify.sh"
+  [ "$status" -eq 0 ]
+  [ "$(wc -l < "$FAKE_HASHEUS_LOG" | tr -d ' ')" = 12 ]
+  [ "$(state_of qubes_os)" = '2026-10-06T00:16:00Z' ]
+}
