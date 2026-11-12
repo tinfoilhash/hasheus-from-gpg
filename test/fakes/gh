@@ -12,7 +12,15 @@
 
 case "$1 $2" in
   'release list')
-    cat "$FAKE_GH_ROOT/releases.json"
+    exclude_prereleases=false
+    for argument in "$@"; do
+      [ "$argument" = --exclude-pre-releases ] && exclude_prereleases=true
+    done
+    if [ "$exclude_prereleases" = true ]; then
+      jaq 'map(select(.isPrerelease != true))' "$FAKE_GH_ROOT/releases.json"
+    else
+      cat "$FAKE_GH_ROOT/releases.json"
+    fi
     ;;
   'release view')
     tag="$3"

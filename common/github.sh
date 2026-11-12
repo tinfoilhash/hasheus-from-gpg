@@ -5,6 +5,23 @@ source "${BASH_SOURCE%/*}/common.sh"
 # is tried again on the next run for this long instead of being recorded.
 release_upload_window_seconds=$((60 * 60 * 24))
 
+github_releases() {
+  gh release list --repo "$1" --exclude-drafts --limit "$limit" \
+    --json tagName,publishedAt
+}
+
+github_release_assets() {
+  gh release view "$2" --repo "$1" --json assets
+}
+
+list_releases() {
+  github_releases "$@"
+}
+
+list_release_assets() {
+  github_release_assets "$@"
+}
+
 resolve_filename_pattern() {
   local pattern="$1"
   local name="$2"
@@ -156,8 +173,7 @@ verify_new_releases() {
   echo '----- getting list of releases'
 
   local releases
-  releases=$(gh release list --repo "$repo" --exclude-drafts --limit "$limit" \
-    --json tagName,publishedAt) || exit 1
+  releases=$(list_releases "$repo") || exit 1
 
   echo '----- checking for new releases'
 
@@ -190,8 +206,7 @@ verify_new_releases() {
     echo '------- getting list of assets'
 
     local release_assets
-    release_assets=$(gh release view "$name" --repo "$repo" --json assets) \
-      || exit 1
+    release_assets=$(list_release_assets "$repo" "$name") || exit 1
 
     local asset_names
     asset_names=$(jaq -r '.assets[].name' <<< "$release_assets") || exit 1
