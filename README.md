@@ -19,9 +19,10 @@ in the future, the hope is that the authors of these packages start publishing d
 - [hq](https://github.com/orf/html-query)
 - [jaq](https://github.com/01mf02/jaq)
 - [shasum](https://perldoc.perl.org/shasum)
+- [unzip](https://infozip.sourceforge.net/UnZip.html)
 - [xmllint](https://gnome.pages.gitlab.gnome.org/libxml2/xmllint.html)
 
-the [scheduled run](scheduled_run/README.md) also needs [git](https://git-scm.com/) and [perl](https://www.perl.org/), and an ai's cli. curl, file, perl, shasum, and xmllint come with macos, and git with its command line tools. gh must be logged in (`gh auth login`, or set `GH_TOKEN`).
+the [scheduled run](scheduled_run/README.md) also needs [git](https://git-scm.com/) and [perl](https://www.perl.org/), and an ai's cli. curl, file, perl, shasum, unzip, and xmllint come with macos, and git with its command line tools. gh must be logged in (`gh auth login`, or set `GH_TOKEN`).
 
 ### import gpg keys
 

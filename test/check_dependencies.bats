@@ -15,7 +15,7 @@ setup() {
   mkdir -p "$bin_dir"
 
   local command
-  for command in curl file gh gpg hasheus hq jaq shasum; do
+  for command in curl file gh gpg hasheus hq jaq shasum unzip; do
     ln -s "$(command -v "$command")" "$bin_dir/$command"
   done
 
