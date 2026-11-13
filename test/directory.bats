@@ -146,6 +146,17 @@ HTML
   [ "$(state_of ldk_node_jvm)" = '2026-10-06T00:16:00Z' ]
 }
 
+@test 'lightning-kmp verifies its signed jvm maven artifacts' {
+  prepare_maven_release lightning_kmp fr/acinq/lightning \
+    lightning-kmp-core-jvm 1.13.2
+  run "$repo_dir/packages/lightning_kmp/verify.sh"
+  [ "$status" -eq 0 ]
+  local expected='lightning-kmp-core-jvm-1.13.2-sources.jar'
+  expected+=' lightning-kmp-core-jvm-1.13.2.jar'
+  published_is "$expected lightning-kmp-core-jvm-1.13.2.pom"
+  [ "$(state_of lightning_kmp)" = '2026-10-06T00:16:00Z' ]
+}
+
 @test 'directory discovery does not use a folder without a valid date' {
   prepare_maven_release bdk_jvm org/bitcoindevkit bdk-jvm 3.1.1
   local index="$FAKE_CURL_ROOT/repo.maven.apache.org/maven2/org/bitcoindevkit"
