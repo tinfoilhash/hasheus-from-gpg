@@ -17,6 +17,7 @@ check_dependencies() {
     'hq'
     'jaq'
     'shasum'
+    'unzip'
     'xmllint'
   )
 
@@ -383,7 +384,8 @@ signed_filenames() {
 # digest (like github's) is used only to skip a file that's already published
 # without downloading it: what's published is the downloaded file's hash, once
 # its signature verifies. the content type defaults to the downloaded
-# file's, and so does one that isn't a mime type.
+# file's, and so does one that isn't a mime type. a signature that's already
+# local, like one unpacked from duplicati's zip, is passed as a path, not a url.
 publish_signed_file() {
   local filename="$1"
   local url="$2"
@@ -405,9 +407,12 @@ publish_signed_file() {
 
   echo '------- downloading file and gpg signature'
 
-  local signature_filename="${signature_url##*/}"
+  local signature_filename="$signature_url"
+  if [[ "$signature_url" == *://* ]]; then
+    signature_filename="${signature_url##*/}"
+    download_file "$signature_url" "$signature_filename" || exit 1
+  fi
 
-  download_file "$signature_url" "$signature_filename" || exit 1
   download_file "$url" "$filename" || exit 1
 
   local hash
