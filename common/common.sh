@@ -410,19 +410,6 @@ publish_signed_file() {
   download_file "$signature_url" "$signature_filename" || exit 1
   download_file "$url" "$filename" || exit 1
 
-  publish_downloaded_signed_file "$filename" "$url" "$signature_filename" \
-    "$content_type" "$digest_hash" "${key_fingerprints[@]}"
-}
-
-publish_downloaded_signed_file() {
-  local filename="$1"
-  local url="$2"
-  local signature_filename="$3"
-  local content_type="$4"
-  local digest_hash="$5"
-  shift 5
-  local key_fingerprints=("$@")
-
   local hash
   hash=$(shasum -a 256 -- "$filename") || exit 1
   hash="${hash%% *}"

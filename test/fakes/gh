@@ -64,11 +64,7 @@ case "$1 $2" in
     echo "https://github.com/$repo/issues/$number"
     ;;
   api\ *)
-    fixture="$FAKE_GH_ROOT/api/$2.json"
-    if [ ! -f "$fixture" ]; then
-      fixture="$FAKE_GH_ROOT/api/${2%%\?*}.json"
-    fi
-    cat "$fixture"
+    cat "$FAKE_GH_ROOT/api/${2%%\?*}.json"
     ;;
   *)
     echo "fake gh: unexpected command: $*" >&2
