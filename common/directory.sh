@@ -25,10 +25,13 @@ read_directory() {
     if (.pre | length) == 1 then
       .pre[0] as $pre
       | ($pre.text | split("\n") | map(trim | select(length > 0))) as $lines
-      | if ($lines | length) != ($pre.names | length) then
+      # apache fancy indexes put their column sort links (?C=N;O=D) on the
+      # same line as the parent directory link.
+      | ($pre.names | map(select(startswith("?") | not))) as $names
+      | if ($lines | length) != ($names | length) then
           error("unrecognized directory index")
         else [range(0; $lines | length) | . as $i | {
-          name: $pre.names[$i],
+          name: $names[$i],
           publishedAt: ((try ($lines[$i] | capture(
             "(?<date>[0-9]{4}-[0-9]{2}-[0-9]{2} " +
             "[0-9]{2}:[0-9]{2}|" +

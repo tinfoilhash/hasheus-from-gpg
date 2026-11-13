@@ -278,8 +278,12 @@ HTML
   export FAKE_CURL_ROOT="$BATS_TEST_TMPDIR/site"
   local root="$FAKE_CURL_ROOT/dist.torproject.org/torbrowser"
   mkdir -p "$root/16.0.2"
-  echo '<pre><a href="16.0.2/">16.0.2/</a> 2026-10-06 00:16 -
-</pre>' > "$root/index.html"
+  # dist.torproject.org serves apache's fancy indexes, with column sort
+  # links on the parent directory's line.
+  local header='<pre><a href="?C=N;O=D">Name</a> <a href="?C=M;O=A">Date</a>'
+  header+='<hr><a href="/">Parent Directory</a> -'
+  printf '%s\n%s\n</pre>\n' "$header" \
+    '<a href="16.0.2/">16.0.2/</a> 2026-10-06 00:16 -' > "$root/index.html"
   local files=(tor-browser-linux-x86_64-16.0.2.tar.xz
     tor-browser-linux-aarch64-16.0.2.tar.xz
     tor-browser-windows-x86_64-portable-16.0.2.exe
@@ -292,7 +296,7 @@ HTML
   shasum -a 256 "${files[@]}" > sha256sums-signed-build.txt
   sign_detached signer sha256sums-signed-build.txt \
     sha256sums-signed-build.txt.asc
-  echo '<pre>' > index.html
+  echo "$header" > index.html
   for filename in "${files[@]}" sha256sums-signed-build.txt \
     sha256sums-signed-build.txt.asc; do
     echo "<a href=\"$filename\">$filename</a> 2026-10-06 00:16 10" \
