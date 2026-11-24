@@ -10,7 +10,7 @@ ai_timeout_seconds="${AI_TIMEOUT_SECONDS:-3600}"
 state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/hasheus-from-gpg"
 log_root="${SCHEDULED_RUN_LOG_DIR:-$state_dir/logs}"
 keep_days="${SCHEDULED_RUN_KEEP_DAYS:-30}"
-tor_port="${SCHEDULED_RUN_TOR_PORT:-9050}"
+tor_proxy="${TOR_PROXY:-socks5h://127.0.0.1:9050}"
 tor_pid=''
 
 # the repo's root, one up from this script's folder.
@@ -213,29 +213,35 @@ keep_awake() {
   fi
 }
 
-# makes sure a tor socks proxy is on 127.0.0.1:$tor_port, the port packages
-# that download over tor use by default. one that's already running is used as
-# is. otherwise this starts tor as this user, with its own config and a data
-# folder kept between runs (so it connects faster), and waits for it to
-# connect. if it can't, packages that need tor stop on their own, so this only
-# warns.
+# makes sure the tor proxy that packages downloading over tor use (TOR_PROXY)
+# is running. one that's already running is used as is. otherwise, when the
+# proxy is on this computer, this starts tor as this user, with its own config
+# and a data folder kept between runs (so it connects faster), and waits for it
+# to connect. if it can't, packages that need tor stop on their own, so this
+# only warns.
 start_tor() {
   local proxy_status=0
-  check_socks_proxy "$tor_port" || proxy_status=$?
+  check_socks_proxy "$tor_host" "$tor_port" || proxy_status=$?
 
   if [ "$proxy_status" -eq 0 ]; then
-    echo "using the tor proxy already on port $tor_port"
+    echo "using the tor proxy already on $tor_host:$tor_port"
     return
   fi
 
   if [ "$proxy_status" -eq 1 ]; then
-    echo "warning: something that isn't a socks proxy is on port $tor_port, so"
-    echo "tor can't start there, and packages that need it will stop"
+    echo "warning: something that isn't a socks proxy is on"
+    echo "$tor_host:$tor_port, so packages that need tor will stop"
+    return
+  fi
+
+  if [ "$tor_host" != 127.0.0.1 ] && [ "$tor_host" != localhost ]; then
+    echo "warning: the tor proxy on $tor_host:$tor_port isn't running, so"
+    echo 'packages that need it will stop'
     return
   fi
 
   if ! command -v tor > /dev/null; then
-    echo "warning: tor isn't installed or running on port $tor_port, so"
+    echo "warning: tor isn't installed or running on $tor_host:$tor_port, so"
     echo 'packages that need it will stop'
     return
   fi
@@ -281,26 +287,27 @@ start_tor() {
     waited=$((waited + 1))
   done
 
-  echo "started tor on port $tor_port"
+  echo "started tor on $tor_host:$tor_port"
 }
 
-# checks for a socks5 proxy on 127.0.0.1:<port> by offering it no
-# authentication, which tor accepts. exits 0 for a socks5 proxy, 1 for
-# something else (or one that doesn't answer in 5 seconds), and 2 when nothing
-# is listening.
+# checks for a socks5 proxy at <host> <port> by offering it no authentication,
+# which tor accepts. exits 0 for a socks5 proxy, 1 for something else (or one
+# that doesn't answer in 5 seconds), and 2 when nothing is listening.
 check_socks_proxy() {
-  local port="$1"
+  local host="$1"
+  local port="$2"
 
   perl -MIO::Socket::INET -e '
+    my ($host, $port) = @ARGV;
     my $socket = IO::Socket::INET->new(
-      PeerAddr => "127.0.0.1", PeerPort => shift, Timeout => 5) or exit 2;
+      PeerAddr => $host, PeerPort => $port, Timeout => 5) or exit 2;
     local $SIG{ALRM} = sub { exit 1 };
     alarm 5;
     syswrite($socket, "\x05\x01\x00") == 3 or exit 1;
     my $reply = "";
     sysread($socket, $reply, 2) == 2 or exit 1;
     exit($reply eq "\x05\x00" ? 0 : 1);
-  ' "$port"
+  ' "$host" "$port"
 }
 
 main() {
@@ -321,10 +328,16 @@ main() {
     exit 1
   fi
 
-  if [[ ! "$tor_port" =~ ^[1-9][0-9]*$ ]] || [ "$tor_port" -gt 65535 ]; then
-    echo "SCHEDULED_RUN_TOR_PORT must be a port number, exiting"
+  # the same form the packages require (see check_tor_proxy in common.sh).
+  local proxy_pattern='^socks5h://([^[:space:]/:]+):([0-9]+)/?$'
+  if [[ ! "$tor_proxy" =~ $proxy_pattern ]] \
+    || [ "${BASH_REMATCH[2]}" -lt 1 ] \
+    || [ "${BASH_REMATCH[2]}" -gt 65535 ]; then
+    echo 'TOR_PROXY must be socks5h://<host>:<port>, exiting'
     exit 1
   fi
+  tor_host="${BASH_REMATCH[1]}"
+  tor_port="${BASH_REMATCH[2]}"
 
   take_lock
 

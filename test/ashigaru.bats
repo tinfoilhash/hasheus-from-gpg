@@ -35,7 +35,7 @@ setup() {
   set_key_fingerprints ashigaru "$(fingerprint_of signer)"
   export FAKE_CURL_ROOT="$BATS_TEST_TMPDIR/site"
   export FAKE_CURL_PROXY_LOG="$BATS_TEST_TMPDIR/proxies"
-  unset ASHIGARU_TOR_PROXY
+  unset TOR_PROXY
   onion='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.onion'
   site="$FAKE_CURL_ROOT/ashigaru.rs/download"
   mkdir -p "$site" "$FAKE_CURL_ROOT/$onion/releases"
@@ -98,9 +98,9 @@ setup() {
 }
 
 @test 'ashigaru refuses a proxy that could resolve onion dns locally' {
-  export ASHIGARU_TOR_PROXY='socks5://127.0.0.1:9050'
+  export TOR_PROXY='socks5://127.0.0.1:9050'
   run "$repo_dir/packages/ashigaru/verify.sh"
   [ "$status" -eq 1 ]
-  [[ "$output" == *'tor proxy must use socks5h://'* ]]
+  [[ "$output" == *'TOR_PROXY must be socks5h://'* ]]
   [ ! -f "$FAKE_HASHEUS_LOG" ]
 }

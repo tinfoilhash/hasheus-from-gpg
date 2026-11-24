@@ -72,7 +72,8 @@ setup() {
   export FAKE_TOR_LOG="$BATS_TEST_TMPDIR/tor.log"
   export FAKE_TOR_PID_FILE="$BATS_TEST_TMPDIR/tor.pid"
   # a port nothing listens on, so a tor on this machine isn't used.
-  export SCHEDULED_RUN_TOR_PORT=$((40000 + RANDOM % 20000))
+  tor_port=$((40000 + RANDOM % 20000))
+  export TOR_PROXY="socks5h://127.0.0.1:$tor_port"
   export AI_COMMAND='ai'
   export STUB_STATUSES='good 0'
 
@@ -262,14 +263,14 @@ tinfoilhash.$" "$FAKE_AI_LOG"
   run_scheduled
 
   [ "$status" -eq 0 ]
-  [[ "$output" == *"started tor on port $SCHEDULED_RUN_TOR_PORT"* ]]
-  grep -qF -- "--SocksPort 127.0.0.1:$SCHEDULED_RUN_TOR_PORT" "$FAKE_TOR_LOG"
+  [[ "$output" == *"started tor on 127.0.0.1:$tor_port"* ]]
+  grep -qF -- "--SocksPort 127.0.0.1:$tor_port" "$FAKE_TOR_LOG"
   grep -qF -- "--DataDirectory $SCHEDULED_RUN_LOG_DIR/.tor " "$FAKE_TOR_LOG"
   grep -q 'Bootstrapped 100%' "$(last_run_dir)/tor.log"
   ! kill -0 "$(cat "$FAKE_TOR_PID_FILE")" 2> /dev/null || false
 }
 
-# listens on $SCHEDULED_RUN_TOR_PORT until the test ends, answering each
+# listens on 127.0.0.1:$tor_port until the test ends, answering each
 # connection's first bytes like a socks5 proxy (`socks`) or a web server
 # (`http`), and sets listener_pid. (the socks reply has a nul byte, which an
 # argument can't hold, so perl writes it.)
@@ -288,11 +289,11 @@ listen_on_tor_port() {
       syswrite($client, $reply);
       close $client;
     }
-  ' "$SCHEDULED_RUN_TOR_PORT" "$kind" 3> /dev/null &
+  ' "$tor_port" "$kind" 3> /dev/null &
   listener_pid=$!
 
   local tries=0
-  until (: < "/dev/tcp/127.0.0.1/$SCHEDULED_RUN_TOR_PORT") 2> /dev/null; do
+  until (: < "/dev/tcp/127.0.0.1/$tor_port") 2> /dev/null; do
     tries=$((tries + 1))
     [ "$tries" -lt 50 ]
     sleep 0.1
@@ -306,7 +307,7 @@ listen_on_tor_port() {
   kill "$listener_pid"
 
   [ "$status" -eq 0 ]
-  [[ "$output" == *'using the tor proxy already on port'* ]]
+  [[ "$output" == *"using the tor proxy already on 127.0.0.1:$tor_port"* ]]
   [ ! -f "$FAKE_TOR_LOG" ]
 }
 
@@ -317,7 +318,7 @@ listen_on_tor_port() {
   kill "$listener_pid"
 
   [ "$status" -eq 0 ]
-  [[ "$output" == *"isn't a socks proxy is on port"* ]]
+  [[ "$output" == *"isn't a socks proxy is on"*"127.0.0.1:$tor_port"* ]]
   [ ! -f "$FAKE_TOR_LOG" ]
   grep -q '^args: ' "$FAKE_AI_LOG"
 }
@@ -343,12 +344,25 @@ listen_on_tor_port() {
   grep -q '^args: ' "$FAKE_AI_LOG"
 }
 
-@test 'refuses a tor port that is not a port number' {
-  SCHEDULED_RUN_TOR_PORT=70000 run_scheduled
+@test 'refuses a TOR_PROXY that is not socks5h://<host>:<port>' {
+  local proxy
+  for proxy in 'socks5://127.0.0.1:9050' 'socks5h://127.0.0.1' \
+    'socks5h://127.0.0.1:70000'; do
+    TOR_PROXY="$proxy" run_scheduled
 
-  [ "$status" -eq 1 ]
-  [[ "$output" == *'SCHEDULED_RUN_TOR_PORT must be a port number'* ]]
+    [ "$status" -eq 1 ]
+    [[ "$output" == *'TOR_PROXY must be socks5h://<host>:<port>'* ]]
+  done
+
   [ ! -f "$FAKE_AI_LOG" ]
+}
+
+@test 'does not start tor for a proxy on another computer' {
+  TOR_PROXY='socks5h://127.0.0.2:9' run_scheduled
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"the tor proxy on 127.0.0.2:9 isn't running"* ]]
+  [ ! -f "$FAKE_TOR_LOG" ]
 }
 
 @test 'stops a hung ai and everything it started, even what ignores SIGTERM' {

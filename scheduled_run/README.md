@@ -34,7 +34,7 @@ loginctl enable-linger
 
 ### tor
 
-packages that download over tor (ashigaru, so far) need a tor socks proxy on `127.0.0.1:9050`. if one is already running there, like a tor system service, the run uses it. otherwise, if [tor](https://www.torproject.org/) is installed, the run starts it as you for the run's length (the ai's dry runs included) and stops it at the end, so tor doesn't have to run all the time. tor's data is kept in `.tor` in the log folder between runs, so it connects faster, and each run's tor output is in its folder's `tor.log`. without tor, those packages stop and the run carries on.
+packages that download over tor (ashigaru, so far) need a tor socks proxy, `TOR_PROXY` (default: `socks5h://127.0.0.1:9050`). if one is already running there, like a tor system service, the run uses it. otherwise, if the proxy is on this computer and [tor](https://www.torproject.org/) is installed, the run starts it as you for the run's length (the ai's dry runs included) and stops it at the end, so tor doesn't have to run all the time. tor's data is kept in `.tor` in the log folder between runs, so it connects faster, and each run's tor output is in its folder's `tor.log`. without tor, those packages stop and the run carries on.
 
 ### sleep
 
@@ -81,5 +81,5 @@ it's configured with env vars, set in the same place as the hasheus keys:
 - `SCHEDULED_RUN_HOURS`: the hours to run at, from 0 to 23 (default: `9`). for every 4 hours, `1,5,9,13,17,21`.
 - `SCHEDULED_RUN_WEEKDAYS`: the days to run on, from 0 (sunday) to 6 (default: every day). for once a week on mondays, `1`.
 - `SCHEDULED_RUN_CLONE_DIR`: where the clone goes (default: `~/.local/share/hasheus-from-gpg/repo`, or under `XDG_DATA_HOME` if set). like `SCHEDULED_RUN_LOG_DIR`, it has to be an absolute path, without `'`, `"`, `\`, `$`, or `%`.
-- `SCHEDULED_RUN_TOR_PORT`: the port of the tor socks proxy on `127.0.0.1` to use, or to start tor on (default: 9050). packages that use tor have their own proxy settings, like `ASHIGARU_TOR_PROXY`, so change those to match.
+- `TOR_PROXY`: the tor socks proxy that packages downloading over tor use, and that the run starts tor on if it's on this computer and not running (default: `socks5h://127.0.0.1:9050`).
 - `SCHEDULED_RUN_LOG_DIR`: where each run's logs go (default: `~/.local/state/hasheus-from-gpg/logs`, or under `XDG_STATE_HOME` if set), kept for `SCHEDULED_RUN_KEEP_DAYS` (default: 30).
