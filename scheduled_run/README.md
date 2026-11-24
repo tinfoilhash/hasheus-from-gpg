@@ -18,7 +18,7 @@ that clones the checkout's origin into its own folder, since each run resets its
 
 ## requirements
 
-systemd starts it in your shell (`$SHELL`) as a login shell, so `HASHEUS_PUBLIC_KEY`, `HASHEUS_SECRET_KEY`, and a `PATH` that finds the tools and the ai's cli have to be set in the files that shell reads at login: `~/.bash_profile` for bash, or `~/.zshenv` or `~/.zprofile` for zsh (not `~/.zshrc`). on arch, the login shell also puts `/usr/bin/core_perl` (where `shasum` lives) on the `PATH`. to check what the job will see:
+systemd starts it in your shell (`$SHELL`) as a login shell, so `HASHEUS_PUBLIC_KEY`, `HASHEUS_SECRET_KEY`, and a `PATH` that finds the tools and the ai's cli have to be set in the files that shell reads at login: `~/.bash_profile` for bash (or `~/.profile`, which debian and ubuntu create, if there's no `~/.bash_profile`, since bash reads only the first it finds), or `~/.zshenv` or `~/.zprofile` for zsh (not `~/.zshrc`). on arch, the login shell also puts `/usr/bin/core_perl` (where `shasum` lives) on the `PATH`. to check what the job will see:
 
 ```bash
 env -i HOME="$HOME" "$SHELL" -l -c 'command -v gh hasheus hq jaq shasum claude; echo "${HASHEUS_SECRET_KEY:+secret key set}"'
