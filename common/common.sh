@@ -7,6 +7,20 @@ is_dry_run() {
   [ -n "${DRY_RUN:-}" ] && [ "$DRY_RUN" != 0 ]
 }
 
+# prints the socks proxy that packages downloading over tor use. it has to be
+# socks5h, so the proxy resolves onion names instead of a local dns lookup,
+# which would fail and leak the name.
+tor_proxy() {
+  echo "${TOR_PROXY:-socks5h://127.0.0.1:9050}"
+}
+
+check_tor_proxy() {
+  if [[ ! "$(tor_proxy)" =~ ^socks5h://[^[:space:]/:]+:[0-9]+/?$ ]]; then
+    echo 'TOR_PROXY must be socks5h://<host>:<port>, exiting'
+    exit 1
+  fi
+}
+
 check_dependencies() {
   local commands=(
     'curl'

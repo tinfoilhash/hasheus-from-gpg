@@ -9,6 +9,7 @@ your prompt names the run directory, the day's issue and its repo, and the githu
 - `packages/<name>.log`: each package's output, and `packages/status.txt`, its exit status (`<name> <status>` per line).
 - `keys-import.log`: importing the listed keys into the real keyring.
 - `keys-audit.log`: the key audit in a throwaway keyring, so problems and warnings there are what anyone fetching the listed urls would see.
+- `tor.log`: tor's output, if the run started tor for packages that download over it (it's missing when a tor proxy was already running, or tor isn't installed). a package that stopped on a connection to the tor proxy (`127.0.0.1:9050` by default) is ours, not upstream's: tor isn't installed, or didn't connect (see this log).
 
 earlier runs are the other folders next to the run directory, named by date and time. compare with the newest one to tell what's new.
 

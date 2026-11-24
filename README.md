@@ -24,6 +24,8 @@ in the future, the hope is that the authors of these packages start publishing d
 
 the [scheduled run](scheduled_run/README.md) also needs [git](https://git-scm.com/) and [perl](https://www.perl.org/), and an ai's cli.
 
+packages that download over tor (ashigaru, so far) also need [tor](https://www.torproject.org/), running as a socks proxy on `127.0.0.1:9050`. to use another, set `TOR_PROXY`, like `socks5h://127.0.0.1:9150` for tor browser's (it has to be `socks5h`, so tor resolves onion names). the scheduled run starts and stops tor itself when it isn't already running.
+
 the scripts run on linux, and the scheduled run needs systemd. gh must be logged in (`gh auth login`, or set `GH_TOKEN`).
 
 ### import gpg keys

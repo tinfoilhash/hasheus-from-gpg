@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+# stands in for tor. it records its arguments in $FAKE_TOR_LOG and its pid in
+# $FAKE_TOR_PID_FILE, if set, then logs that it connected and runs until
+# stopped. with $FAKE_TOR_FAILS set, it exits instead, like tor failing to
+# start.
+
+if [ -n "${FAKE_TOR_LOG:-}" ]; then
+  echo "$*" >> "$FAKE_TOR_LOG"
+fi
+
+if [ -n "${FAKE_TOR_PID_FILE:-}" ]; then
+  echo "$$" > "$FAKE_TOR_PID_FILE"
+fi
+
+if [ -n "${FAKE_TOR_FAILS:-}" ]; then
+  echo '[err] Could not bind to 127.0.0.1:9050: Address already in use'
+  exit 1
+fi
+
+echo '[notice] Bootstrapped 100% (done): Done'
+exec sleep 300

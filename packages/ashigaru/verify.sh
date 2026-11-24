@@ -14,17 +14,32 @@ repo='https://ashigaru.rs/download/'
 key_fingerprints=(
   '445F807996F70586B715C7B8A13806B1FA2A676B' # https://keybase.io/ashigarudev/pgp_keys.asc
 )
-tor_proxy="${ASHIGARU_TOR_PROXY:-socks5h://127.0.0.1:9050}"
-if [[ ! "$tor_proxy" =~ ^socks5h://[^[:space:]]+$ ]]; then
-  echo 'ashigaru tor proxy must use socks5h://, exiting'
-  exit 1
-fi
+check_tor_proxy
 
+# reaching an onion service through a tor that just started (like the one the
+# scheduled run starts) can take minutes, and tor's first try can time out
+# while a second one gets through. so allow 3 minutes to connect, and try again
+# when tor couldn't reach the service (97) or the connection timed out (28).
 download_file() {
   local url="$1"
   local filename="$2"
-  curl -fL --connect-timeout 30 --speed-limit 1024 --speed-time 60 \
-    --proxy "$tor_proxy" --noproxy '' -o "$filename" "$url"
+
+  local attempt status
+  for attempt in 1 2 3; do
+    curl -fL --connect-timeout 180 --speed-limit 1024 --speed-time 60 \
+      --proxy "$(tor_proxy)" --noproxy '' -o "$filename" "$url" && return 0
+    status=$?
+
+    if [ "$status" -ne 97 ] && [ "$status" -ne 28 ]; then
+      return "$status"
+    fi
+
+    if [ "$attempt" -lt 3 ]; then
+      echo "couldn't reach the onion service (curl $status), trying again"
+    fi
+  done
+
+  return "$status"
 }
 
 parse_release_manifest() {
