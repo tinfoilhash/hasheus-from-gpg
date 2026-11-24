@@ -24,13 +24,7 @@ in the future, the hope is that the authors of these packages start publishing d
 
 the [scheduled run](scheduled_run/README.md) also needs [git](https://git-scm.com/) and [perl](https://www.perl.org/), and an ai's cli.
 
-the scripts run on linux, and the scheduled run needs systemd. most dependencies come from your distro's packages, under names that vary:
-
-- **arch** (and omarchy): `sudo pacman -S --needed curl file git github-cli gnupg jaq libxml2 perl unzip`. `shasum` is in `/usr/bin/core_perl`, which login shells put on the `PATH`.
-- **debian and ubuntu**: `sudo apt install curl file git gh gnupg libxml2-utils perl unzip`. `shasum` comes with perl.
-- **fedora**: `sudo dnf install curl file git gh gnupg2 libxml2 perl-Digest-SHA unzip`. `shasum` is in `perl-Digest-SHA`, not perl itself.
-
-anything your distro doesn't package can be installed with [cargo](https://www.rust-lang.org/tools/install): hq (`cargo install --locked html-query`), which few distros package, jaq (`cargo install --locked jaq`), which debian, ubuntu, and fedora may not have, and hasheus (`cargo install --locked --git https://github.com/tinfoilhash/hasheus-cli`, or a binary from [its releases](https://github.com/tinfoilhash/hasheus-cli/releases)). gh must be logged in (`gh auth login`, or set `GH_TOKEN`).
+the scripts run on linux, and the scheduled run needs systemd. gh must be logged in (`gh auth login`, or set `GH_TOKEN`).
 
 ### import gpg keys
 
@@ -88,13 +82,7 @@ DRY_RUN=1 HASHEUS_PUBLIC_KEY={{npub...}} ./verify_all.sh
 
 the tests use [bats](https://github.com/bats-core/bats-core). fake `gh`, `hasheus`, and `curl` (in `test/fakes`) serve fixtures, and gpg keys are generated for each run, so the tests never touch the network or the relay.
 
-the checks also need [actionlint](https://github.com/rhysd/actionlint), [shellcheck](https://www.shellcheck.net/), and [shfmt](https://github.com/mvdan/sh). on arch:
-
-```bash
-sudo pacman -S --needed actionlint bats shellcheck shfmt
-```
-
-other distros package bats, shellcheck, and shfmt, but not always actionlint or a recent shfmt, so ci installs all four with [homebrew](https://brew.sh/), which works on any distro (see `.github/workflows/test.yml`).
+the checks also need [actionlint](https://github.com/rhysd/actionlint), [shellcheck](https://www.shellcheck.net/), and [shfmt](https://github.com/mvdan/sh).
 
 ```bash
 bats test
