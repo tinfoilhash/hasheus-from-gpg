@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+# stands in for systemd-inhibit, so the tests don't take sleep locks. it
+# records its arguments in $FAKE_INHIBIT_LOG, if set, then runs the command
+# after the options, like holding the lock while it runs. with
+# $FAKE_INHIBIT_DENIED set, it fails like logind refusing the lock.
+
+if [ -n "${FAKE_INHIBIT_LOG:-}" ]; then
+  echo "$*" >> "$FAKE_INHIBIT_LOG"
+fi
+
+if [ -n "${FAKE_INHIBIT_DENIED:-}" ]; then
+  echo 'Failed to inhibit: Access denied' >&2
+  exit 1
+fi
+
+while [[ "${1:-}" == --* ]]; do
+  shift
+done
+
+exec "$@"

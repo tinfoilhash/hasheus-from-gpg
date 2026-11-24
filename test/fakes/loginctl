@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+# answers `show-user` with lingering on only if $FAKE_LINGER is set.
+
+if [ "$1" = show-user ]; then
+  if [ -n "${FAKE_LINGER:-}" ]; then echo yes; else echo no; fi
+fi

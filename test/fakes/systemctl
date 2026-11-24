@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+# records each call in $FAKE_SYSTEMCTL_LOG. `daemon-reload` fails with
+# $FAKE_SYSTEMCTL_RELOAD_FAILS set, like it does without a user manager.
+
+echo "$*" >> "$FAKE_SYSTEMCTL_LOG"
+
+if [ "$*" = '--user daemon-reload' ] \
+  && [ -n "${FAKE_SYSTEMCTL_RELOAD_FAILS:-}" ]; then
+  echo 'Failed to connect to bus: No medium found' >&2
+  exit 1
+fi

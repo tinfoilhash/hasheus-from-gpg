@@ -1,30 +1,34 @@
 #!/usr/bin/env bash
 
 # installs the scheduled run: a clone of this checkout's origin that run.sh can
-# reset each run, and a launchd job that runs it at SCHEDULED_RUN_HOURS on
-# SCHEDULED_RUN_WEEKDAYS (9:00 every day by default). with --uninstall, removes
-# the job and the clone, keeping the logs.
+# reset each run, and a systemd user timer that runs it at SCHEDULED_RUN_HOURS
+# on SCHEDULED_RUN_WEEKDAYS (9:00 every day by default). with --uninstall,
+# removes the timer and the clone, keeping the logs.
 
-app_support_dir="$HOME/Library/Application Support/hasheus-from-gpg"
-clone_dir="${SCHEDULED_RUN_CLONE_DIR:-$app_support_dir/repo}"
-log_root="${SCHEDULED_RUN_LOG_DIR:-$HOME/Library/Logs/hasheus-from-gpg}"
+data_dir="${XDG_DATA_HOME:-$HOME/.local/share}/hasheus-from-gpg"
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/hasheus-from-gpg"
+clone_dir="${SCHEDULED_RUN_CLONE_DIR:-$data_dir/repo}"
+log_root="${SCHEDULED_RUN_LOG_DIR:-$state_dir/logs}"
 hours="${SCHEDULED_RUN_HOURS:-9}"
 weekdays="${SCHEDULED_RUN_WEEKDAYS:-}"
-label='com.hasheus.from-gpg.scheduled-run'
-plist="$HOME/Library/LaunchAgents/$label.plist"
-domain="gui/$(id -u)"
+unit='hasheus-from-gpg-scheduled-run'
+unit_dir="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
+service="$unit_dir/$unit.service"
+timer="$unit_dir/$unit.timer"
 
 # the repo's root, one up from this script's folder.
 cd "$(dirname -- "$(dirname -- "$(realpath "$0")")")" || exit 1
 
-# the paths go into the plist with sed and into a single-quoted shell command,
-# so allow only absolute paths without characters that would break either.
+# the paths go into the unit's double-quoted values, where systemd expands $
+# and %, and into a single-quoted shell command, so allow only absolute paths
+# without characters that would break either.
 check_path() {
   local name="$1"
   local value="$2"
 
-  if [[ "$value" != /* ]] || [[ "$value" =~ [\'\\\|\&\<\>] ]]; then
-    echo "$name must be an absolute path without ' \\ | & < or >, exiting"
+  if [[ "$value" != /* ]] || [[ "$value" =~ [\'\"\\$%] ]] \
+    || [[ "$value" == *$'\n'* ]]; then
+    echo "$name must be an absolute path without ' \" \\ \$ or %, exiting"
     exit 1
   fi
 }
@@ -45,23 +49,17 @@ check_schedule() {
   fi
 }
 
-# prints launchd's calendar entries: one per hour, on each weekday if any are
-# set, or every day otherwise.
-schedule_entries() {
-  local hour weekday
-  for hour in ${hours//,/ }; do
-    if [ -z "$weekdays" ]; then
-      echo "<dict><key>Hour</key><integer>$hour</integer>"
-      echo "<key>Minute</key><integer>0</integer></dict>"
-      continue
-    fi
-
-    for weekday in ${weekdays//,/ }; do
-      echo "<dict><key>Weekday</key><integer>$weekday</integer>"
-      echo "<key>Hour</key><integer>$hour</integer>"
-      echo "<key>Minute</key><integer>0</integer></dict>"
-    done
+# prints the timer's OnCalendar value, like `Mon,Fri *-*-* 9,18:00:00`: each
+# hour, on each weekday if any are set, or every day otherwise.
+calendar() {
+  local days=''
+  local weekday
+  for weekday in ${weekdays//,/ }; do
+    local names=(Sun Mon Tue Wed Thu Fri Sat)
+    days="$days${days:+,}${names[$weekday]}"
   done
+
+  echo "${days:+$days }*-*-* $hours:00:00"
 }
 
 # describes the schedule, like "at 9:00 on days 1,3".
@@ -105,28 +103,42 @@ set_up_clone() {
 
   git -C "$clone_dir" config hasheus-from-gpg.scheduledRun true
   # gh's credentials, so pushes use the account gh is logged in as, not one
-  # saved in the keychain.
+  # saved by another credential helper.
   git -C "$clone_dir" config credential.helper ''
   git -C "$clone_dir" config --add credential.helper '!gh auth git-credential'
 
   echo "cloned $url into $clone_dir"
 }
 
-write_plist() {
-  mkdir -p "$(dirname -- "$plist")" "$log_root" || exit 1
+# the service runs run.sh in a login shell, so it gets the hasheus keys and
+# PATH from the shell's startup files, with the log folder set so run.sh
+# writes where this install made it. its output goes to the journal.
+write_units() {
+  mkdir -p "$unit_dir" "$log_root" || exit 1
 
-  local schedule
-  schedule=$(schedule_entries)
+  cat > "$service" << EOF || exit 1
+[Unit]
+Description=hasheus from gpg scheduled run
 
-  # `|` separates sed's fields, so the paths can contain `/` and spaces. the
-  # schedule goes through the environment, since awk -v can't take newlines.
-  set -o pipefail
-  sed -e "s|LOGIN_SHELL|$SHELL|" -e "s|CLONE_DIR|$clone_dir|" \
-    -e "s|LOG_DIR|$log_root|g" scheduled_run/launchd.plist \
-    | SCHEDULE="$schedule" awk '
-      $1 == "SCHEDULE" { print ENVIRON["SCHEDULE"]; next }
-      { print }
-    ' > "$plist" || exit 1
+[Service]
+Type=oneshot
+Environment="SCHEDULED_RUN_LOG_DIR=$log_root"
+ExecStart="$SHELL" -l -c "'$clone_dir/scheduled_run/run.sh'"
+EOF
+
+  # Persistent runs a time that was missed while the computer was off or
+  # asleep once it's back.
+  cat > "$timer" << EOF || exit 1
+[Unit]
+Description=hasheus from gpg scheduled run
+
+[Timer]
+OnCalendar=$(calendar)
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
 }
 
 # the job only sees what the login shell's startup files set, so check without
@@ -142,27 +154,46 @@ check_login_shell() {
   done
 }
 
+# without lingering, systemd stops the user's timers when they log out.
+check_linger() {
+  local linger
+  linger=$(loginctl show-user "$(id -un)" --property=Linger --value \
+    2> /dev/null)
+
+  if [ "$linger" != yes ]; then
+    echo "warning: lingering is off, so the timer only runs while you're"
+    echo 'logged in. to run it while logged out: loginctl enable-linger'
+  fi
+}
+
 install() {
   check_path SHELL "$SHELL"
   check_path SCHEDULED_RUN_CLONE_DIR "$clone_dir"
   check_path SCHEDULED_RUN_LOG_DIR "$log_root"
   check_schedule
   set_up_clone
-  write_plist
+  write_units
 
-  # reload, so a reinstall picks up a changed plist.
-  launchctl bootout "$domain/$label" 2> /dev/null
-  launchctl bootstrap "$domain" "$plist" || exit 1
+  # restart, so a reinstall picks up a changed schedule.
+  systemctl --user daemon-reload || exit 1
+  systemctl --user enable -q "$unit.timer" || exit 1
+  systemctl --user restart "$unit.timer" || exit 1
 
-  echo "installed $plist, which runs the scheduled run $(describe_schedule)"
+  echo "installed $timer, which runs the scheduled run $(describe_schedule)"
   check_login_shell
-  echo "to run it now: launchctl kickstart $domain/$label"
+  check_linger
+  echo "to run it now: systemctl --user start --no-block $unit.service"
+  echo "its output: journalctl --user -u $unit.service"
 }
 
 uninstall() {
-  launchctl bootout "$domain/$label" 2> /dev/null
-  rm -f "$plist"
-  echo "removed $plist"
+  systemctl --user disable -q --now "$unit.timer" 2> /dev/null
+  # stop a run in progress too, so it doesn't keep going from a clone that's
+  # about to be removed.
+  systemctl --user stop "$unit.service" 2> /dev/null
+  rm -f "$service" "$timer"
+  systemctl --user daemon-reload 2> /dev/null
+  echo "removed $service and $timer"
 
   if is_scheduled_run_clone; then
     rm -rf "$clone_dir"
