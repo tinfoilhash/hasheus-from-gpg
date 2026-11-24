@@ -10,6 +10,8 @@ ai_timeout_seconds="${AI_TIMEOUT_SECONDS:-3600}"
 state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/hasheus-from-gpg"
 log_root="${SCHEDULED_RUN_LOG_DIR:-$state_dir/logs}"
 keep_days="${SCHEDULED_RUN_KEEP_DAYS:-30}"
+tor_port="${SCHEDULED_RUN_TOR_PORT:-9050}"
+tor_pid=''
 
 # the repo's root, one up from this script's folder.
 repo_dir=$(dirname -- "$(dirname -- "$(realpath "$0")")")
@@ -67,7 +69,23 @@ take_lock() {
   fi
 
   echo "$$" > "$lock_dir/pid" || exit 1
-  trap 'rm -rf "$log_root/.lock"' EXIT
+  trap clean_up EXIT
+  # exit on these, so the EXIT trap stops tor (background commands ignore
+  # SIGINT in a script, so a ctrl-c wouldn't reach it).
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+}
+
+# run by the EXIT trap, which shellcheck doesn't follow.
+# shellcheck disable=SC2329
+clean_up() {
+  # stop the tor that start_tor started, if any.
+  if [ -n "$tor_pid" ]; then
+    kill "$tor_pid" 2> /dev/null
+    wait "$tor_pid" 2> /dev/null
+  fi
+
+  rm -rf "$log_root/.lock"
 }
 
 # resets to origin's main, undoing anything the last run's ai left behind, then
@@ -195,6 +213,96 @@ keep_awake() {
   fi
 }
 
+# makes sure a tor socks proxy is on 127.0.0.1:$tor_port, the port packages
+# that download over tor use by default. one that's already running is used as
+# is. otherwise this starts tor as this user, with its own config and a data
+# folder kept between runs (so it connects faster), and waits for it to
+# connect. if it can't, packages that need tor stop on their own, so this only
+# warns.
+start_tor() {
+  local proxy_status=0
+  check_socks_proxy "$tor_port" || proxy_status=$?
+
+  if [ "$proxy_status" -eq 0 ]; then
+    echo "using the tor proxy already on port $tor_port"
+    return
+  fi
+
+  if [ "$proxy_status" -eq 1 ]; then
+    echo "warning: something that isn't a socks proxy is on port $tor_port, so"
+    echo "tor can't start there, and packages that need it will stop"
+    return
+  fi
+
+  if ! command -v tor > /dev/null; then
+    echo "warning: tor isn't installed or running on port $tor_port, so"
+    echo 'packages that need it will stop'
+    return
+  fi
+
+  local tor_dir="$log_root/.tor"
+  local tor_log="$run_dir/tor.log"
+  # trouble with tor's own files only stops the packages that need tor.
+  if ! mkdir -p "$tor_dir" || ! chmod 700 "$tor_dir"; then
+    echo "warning: couldn't set up $tor_dir, so packages that need tor will"
+    echo 'stop'
+    return
+  fi
+
+  # an empty config, so a system torrc (which can set a user or data folder
+  # only root can use) doesn't apply. tor won't read /dev/null as one.
+  local torrc="$tor_dir/torrc"
+  if ! : > "$torrc"; then
+    echo "warning: couldn't write $torrc, so packages that need tor will stop"
+    return
+  fi
+  tor -f "$torrc" --defaults-torrc "$torrc" --DataDirectory "$tor_dir" \
+    --SocksPort "127.0.0.1:$tor_port" --Log 'notice stdout' \
+    < /dev/null > "$tor_log" 2>&1 &
+  tor_pid=$!
+
+  local waited=0
+  until grep -q 'Bootstrapped 100%' "$tor_log"; do
+    if ! kill -0 "$tor_pid" 2> /dev/null; then
+      tor_pid=''
+      echo "warning: tor exited before connecting (see tor.log), so packages"
+      echo 'that need it will stop'
+      return
+    fi
+
+    # a first start, with nothing kept from an earlier run, can take minutes.
+    if [ "$waited" -ge 300 ]; then
+      echo "warning: tor didn't connect in 5 minutes (see tor.log), so"
+      echo 'packages that need it may stop'
+      return
+    fi
+
+    sleep 1
+    waited=$((waited + 1))
+  done
+
+  echo "started tor on port $tor_port"
+}
+
+# checks for a socks5 proxy on 127.0.0.1:<port> by offering it no
+# authentication, which tor accepts. exits 0 for a socks5 proxy, 1 for
+# something else (or one that doesn't answer in 5 seconds), and 2 when nothing
+# is listening.
+check_socks_proxy() {
+  local port="$1"
+
+  perl -MIO::Socket::INET -e '
+    my $socket = IO::Socket::INET->new(
+      PeerAddr => "127.0.0.1", PeerPort => shift, Timeout => 5) or exit 2;
+    local $SIG{ALRM} = sub { exit 1 };
+    alarm 5;
+    syswrite($socket, "\x05\x01\x00") == 3 or exit 1;
+    my $reply = "";
+    sysread($socket, $reply, 2) == 2 or exit 1;
+    exit($reply eq "\x05\x00" ? 0 : 1);
+  ' "$port"
+}
+
 main() {
   check_clone
 
@@ -210,6 +318,11 @@ main() {
 
   if [[ ! "$ai_timeout_seconds" =~ ^[1-9][0-9]*$ ]]; then
     echo "AI_TIMEOUT_SECONDS must be a whole number of seconds, exiting"
+    exit 1
+  fi
+
+  if [[ ! "$tor_port" =~ ^[1-9][0-9]*$ ]] || [ "$tor_port" -gt 65535 ]; then
+    echo "SCHEDULED_RUN_TOR_PORT must be a port number, exiting"
     exit 1
   fi
 
@@ -232,6 +345,8 @@ main() {
   mkdir -p "$run_dir" || exit 1
 
   delete_old_runs
+  # tor runs until the end, since the ai's dry runs may need it too.
+  start_tor
   check_keys
   LOG_DIR="$run_dir/packages" ./verify_all.sh
 

@@ -69,6 +69,10 @@ setup() {
   export FAKE_GH_LOG="$BATS_TEST_TMPDIR/gh.log"
   export FAKE_AI_LOG="$BATS_TEST_TMPDIR/ai.log"
   export FAKE_INHIBIT_LOG="$BATS_TEST_TMPDIR/inhibit.log"
+  export FAKE_TOR_LOG="$BATS_TEST_TMPDIR/tor.log"
+  export FAKE_TOR_PID_FILE="$BATS_TEST_TMPDIR/tor.pid"
+  # a port nothing listens on, so a tor on this machine isn't used.
+  export SCHEDULED_RUN_TOR_PORT=$((40000 + RANDOM % 20000))
   export AI_COMMAND='ai'
   export STUB_STATUSES='good 0'
 
@@ -252,6 +256,99 @@ tinfoilhash.$" "$FAKE_AI_LOG"
   [ "$status" -eq 0 ]
   [[ "$output" == *"warning: couldn't take a sleep lock"* ]]
   grep -q '^args: ' "$FAKE_AI_LOG"
+}
+
+@test 'starts tor for the run and stops it at the end' {
+  run_scheduled
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"started tor on port $SCHEDULED_RUN_TOR_PORT"* ]]
+  grep -qF -- "--SocksPort 127.0.0.1:$SCHEDULED_RUN_TOR_PORT" "$FAKE_TOR_LOG"
+  grep -qF -- "--DataDirectory $SCHEDULED_RUN_LOG_DIR/.tor " "$FAKE_TOR_LOG"
+  grep -q 'Bootstrapped 100%' "$(last_run_dir)/tor.log"
+  ! kill -0 "$(cat "$FAKE_TOR_PID_FILE")" 2> /dev/null || false
+}
+
+# listens on $SCHEDULED_RUN_TOR_PORT until the test ends, answering each
+# connection's first bytes like a socks5 proxy (`socks`) or a web server
+# (`http`), and sets listener_pid. (the socks reply has a nul byte, which an
+# argument can't hold, so perl writes it.)
+listen_on_tor_port() {
+  local kind="$1"
+
+  perl -MIO::Socket::INET -e '
+    my ($port, $kind) = @ARGV;
+    my $reply = $kind eq "socks" ? "\x05\x00" : "HTTP/1.0 400 Bad Request\r\n";
+    my $server = IO::Socket::INET->new(LocalAddr => "127.0.0.1",
+      LocalPort => $port, Listen => 5, ReuseAddr => 1)
+      or die "listen failed: $!\n";
+    while (my $client = $server->accept) {
+      my $request;
+      sysread($client, $request, 3);
+      syswrite($client, $reply);
+      close $client;
+    }
+  ' "$SCHEDULED_RUN_TOR_PORT" "$kind" 3> /dev/null &
+  listener_pid=$!
+
+  local tries=0
+  until (: < "/dev/tcp/127.0.0.1/$SCHEDULED_RUN_TOR_PORT") 2> /dev/null; do
+    tries=$((tries + 1))
+    [ "$tries" -lt 50 ]
+    sleep 0.1
+  done
+}
+
+@test 'uses a tor proxy that is already running' {
+  listen_on_tor_port socks
+
+  run_scheduled
+  kill "$listener_pid"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'using the tor proxy already on port'* ]]
+  [ ! -f "$FAKE_TOR_LOG" ]
+}
+
+@test 'warns when something other than a socks proxy is on the tor port' {
+  listen_on_tor_port http
+
+  run_scheduled
+  kill "$listener_pid"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"isn't a socks proxy is on port"* ]]
+  [ ! -f "$FAKE_TOR_LOG" ]
+  grep -q '^args: ' "$FAKE_AI_LOG"
+}
+
+@test 'warns when it cannot set up tor, and runs anyway' {
+  mkdir -p "$SCHEDULED_RUN_LOG_DIR"
+  touch "$SCHEDULED_RUN_LOG_DIR/.tor"
+
+  run_scheduled
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"warning: couldn't set up"* ]]
+  [ ! -f "$FAKE_TOR_LOG" ]
+  grep -q '^args: ' "$FAKE_AI_LOG"
+}
+
+@test 'warns when tor exits before connecting, and runs anyway' {
+  FAKE_TOR_FAILS=1 run_scheduled
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'warning: tor exited before connecting'* ]]
+  grep -q 'Could not bind' "$(last_run_dir)/tor.log"
+  grep -q '^args: ' "$FAKE_AI_LOG"
+}
+
+@test 'refuses a tor port that is not a port number' {
+  SCHEDULED_RUN_TOR_PORT=70000 run_scheduled
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'SCHEDULED_RUN_TOR_PORT must be a port number'* ]]
+  [ ! -f "$FAKE_AI_LOG" ]
 }
 
 @test 'stops a hung ai and everything it started, even what ignores SIGTERM' {
