@@ -271,22 +271,31 @@ tinfoilhash.$" "$FAKE_AI_LOG"
 }
 
 # listens on 127.0.0.1:$tor_port until the test ends, answering each
-# connection's first bytes like a socks5 proxy (`socks`) or a web server
-# (`http`), and sets listener_pid. (the socks reply has a nul byte, which an
-# argument can't hold, so perl writes it.)
+# connection's first bytes like a socks5 proxy (`socks`, or `split-socks` a byte
+# at a time) or a web server (`http`), and sets listener_pid. (the socks reply
+# has a nul byte, which an argument can't hold, so perl writes it.)
 listen_on_tor_port() {
   local kind="$1"
 
   perl -MIO::Socket::INET -e '
     my ($port, $kind) = @ARGV;
-    my $reply = $kind eq "socks" ? "\x05\x00" : "HTTP/1.0 400 Bad Request\r\n";
+    # the wait for the port below hangs up without reading, so a write can
+    # find the connection closed.
+    $SIG{PIPE} = "IGNORE";
+    my $reply = $kind eq "http" ? "HTTP/1.0 400 Bad Request\r\n" : "\x05\x00";
     my $server = IO::Socket::INET->new(LocalAddr => "127.0.0.1",
       LocalPort => $port, Listen => 5, ReuseAddr => 1)
       or die "listen failed: $!\n";
     while (my $client = $server->accept) {
       my $request;
       sysread($client, $request, 3);
-      syswrite($client, $reply);
+      # `split-socks` sends the reply a byte at a time, as a slow proxy can.
+      if ($kind eq "split-socks") {
+        syswrite($client, $_) and select(undef, undef, undef, 0.2)
+          for split //, $reply;
+      } else {
+        syswrite($client, $reply);
+      }
       close $client;
     }
   ' "$tor_port" "$kind" 3> /dev/null &
@@ -302,6 +311,17 @@ listen_on_tor_port() {
 
 @test 'uses a tor proxy that is already running' {
   listen_on_tor_port socks
+
+  run_scheduled
+  kill "$listener_pid"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"using the tor proxy already on 127.0.0.1:$tor_port"* ]]
+  [ ! -f "$FAKE_TOR_LOG" ]
+}
+
+@test 'uses a tor proxy whose reply arrives a byte at a time' {
+  listen_on_tor_port split-socks
 
   run_scheduled
   kill "$listener_pid"

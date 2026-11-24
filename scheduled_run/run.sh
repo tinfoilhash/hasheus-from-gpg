@@ -304,8 +304,11 @@ check_socks_proxy() {
     local $SIG{ALRM} = sub { exit 1 };
     alarm 5;
     syswrite($socket, "\x05\x01\x00") == 3 or exit 1;
+    # a read can return part of the reply, so read until both bytes are in.
     my $reply = "";
-    sysread($socket, $reply, 2) == 2 or exit 1;
+    while (length($reply) < 2) {
+      sysread($socket, $reply, 2 - length($reply), length($reply)) or exit 1;
+    }
     exit($reply eq "\x05\x00" ? 0 : 1);
   ' "$host" "$port"
 }
