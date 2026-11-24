@@ -9,6 +9,7 @@ source "$BATS_TEST_DIRNAME/test_helper.bash"
 
 git_quiet() {
   git -c user.name=test -c user.email=test@test -c init.defaultBranch=main \
+    -c commit.gpgsign=false \
     "$@" -q
 }
 
@@ -67,6 +68,7 @@ setup() {
   export FAKE_GH_ROOT="$BATS_TEST_TMPDIR/gh"
   export FAKE_GH_LOG="$BATS_TEST_TMPDIR/gh.log"
   export FAKE_AI_LOG="$BATS_TEST_TMPDIR/ai.log"
+  export FAKE_INHIBIT_LOG="$BATS_TEST_TMPDIR/inhibit.log"
   export AI_COMMAND='ai'
   export STUB_STATUSES='good 0'
 
@@ -235,7 +237,24 @@ tinfoilhash.$" "$FAKE_AI_LOG"
     "$FAKE_AI_LOG"
 }
 
-@test 'stops a hung ai and everything it started, then opens a plain summary' {
+@test 'keeps the computer from sleeping until the run ends' {
+  run_scheduled
+
+  [ "$status" -eq 0 ]
+  grep -q -- '--what=sleep:idle .* tail --pid=[0-9]* -f /dev/null$' \
+    "$FAKE_INHIBIT_LOG"
+  [[ "$output" != *"couldn't take a sleep lock"* ]]
+}
+
+@test 'warns when logind refuses the sleep lock, and runs anyway' {
+  FAKE_INHIBIT_DENIED=1 run_scheduled
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"warning: couldn't take a sleep lock"* ]]
+  grep -q '^args: ' "$FAKE_AI_LOG"
+}
+
+@test 'stops a hung ai and everything it started, even what ignores SIGTERM' {
   local child_pid_file="$BATS_TEST_TMPDIR/child.pid"
 
   AI_TIMEOUT_SECONDS=1 FAKE_AI_HANG="$child_pid_file" run_scheduled

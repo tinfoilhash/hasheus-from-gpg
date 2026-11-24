@@ -10,7 +10,7 @@ in the future, the hope is that the authors of these packages start publishing d
 
 ### dependencies
 
-- [bash](https://www.gnu.org/software/bash/) 3.2 or newer (the macos default, so the scripts must stay compatible with it)
+- [bash](https://www.gnu.org/software/bash/) 3.2 or newer
 - [curl](https://curl.se/)
 - [file](https://www.darwinsys.com/file/)
 - [gh](https://cli.github.com/)
@@ -22,7 +22,9 @@ in the future, the hope is that the authors of these packages start publishing d
 - [unzip](https://infozip.sourceforge.net/UnZip.html)
 - [xmllint](https://gnome.pages.gitlab.gnome.org/libxml2/xmllint.html)
 
-the [scheduled run](scheduled_run/README.md) also needs [git](https://git-scm.com/) and [perl](https://www.perl.org/), and an ai's cli. curl, file, perl, shasum, unzip, and xmllint come with macos, and git with its command line tools. gh must be logged in (`gh auth login`, or set `GH_TOKEN`).
+the [scheduled run](scheduled_run/README.md) also needs [git](https://git-scm.com/) and [perl](https://www.perl.org/), and an ai's cli.
+
+the scripts run on linux, and the scheduled run needs systemd. gh must be logged in (`gh auth login`, or set `GH_TOKEN`).
 
 ### import gpg keys
 
@@ -68,7 +70,7 @@ DRY_RUN=1 HASHEUS_PUBLIC_KEY={{npub...}} ./verify_all.sh
 
 ### scheduled run
 
-[scheduled_run](scheduled_run/README.md) runs every package on a schedule on a mac (daily by default) and has an ai triage the results: it opens issues for upstream maintainers, opens fix prs, and opens an issue with each run's summary. its [readme](scheduled_run/README.md) covers the requirements and settings. to install it:
+[scheduled_run](scheduled_run/README.md) runs every package on a schedule with a systemd user timer (daily by default) and has an ai triage the results: it opens issues for upstream maintainers, opens fix prs, and opens an issue with each run's summary. its [readme](scheduled_run/README.md) covers the requirements and settings. to install it:
 
 ```bash
 ./scheduled_run/install.sh
@@ -80,9 +82,7 @@ DRY_RUN=1 HASHEUS_PUBLIC_KEY={{npub...}} ./verify_all.sh
 
 the tests use [bats](https://github.com/bats-core/bats-core). fake `gh`, `hasheus`, and `curl` (in `test/fakes`) serve fixtures, and gpg keys are generated for each run, so the tests never touch the network or the relay.
 
-```bash
-brew install actionlint bats-core shellcheck shfmt
-```
+the checks also need [actionlint](https://github.com/rhysd/actionlint), [shellcheck](https://www.shellcheck.net/), and [shfmt](https://github.com/mvdan/sh).
 
 ```bash
 bats test

@@ -7,7 +7,8 @@
 
 ai_command="${AI_COMMAND:-claude -p --dangerously-skip-permissions}"
 ai_timeout_seconds="${AI_TIMEOUT_SECONDS:-3600}"
-log_root="${SCHEDULED_RUN_LOG_DIR:-$HOME/Library/Logs/hasheus-from-gpg}"
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/hasheus-from-gpg"
+log_root="${SCHEDULED_RUN_LOG_DIR:-$state_dir/logs}"
 keep_days="${SCHEDULED_RUN_KEEP_DAYS:-30}"
 
 # the repo's root, one up from this script's folder.
@@ -98,9 +99,10 @@ check_keys() {
 }
 
 # runs a command, killing it and everything it started if it's still running
-# after the given seconds (exiting 124, like `timeout`, which macos doesn't
-# have). the command runs in its own process group so the kill reaches the
-# commands an ai's cli runs, too.
+# after the given seconds (exiting 124, like `timeout`). the command runs in its
+# own process group so the kill reaches the commands an ai's cli runs, too.
+# coreutils `timeout` isn't enough: it returns as soon as the command exits, so
+# a child that ignores SIGTERM would keep running.
 timeout_program='
   my $seconds = shift;
   my $pid = fork // die "fork failed: $!\n";
@@ -177,10 +179,26 @@ open_plain_issue() {
     --body-file "$body"
 }
 
+# keeps the computer from sleeping until the run ends. logind refuses the lock
+# to a run outside a login session (one started while logged out, with
+# lingering) unless a polkit rule allows it (see the readme), so say so rather
+# than assume it's held. a refused lock exits right away.
+keep_awake() {
+  systemd-inhibit --what=sleep:idle --who=hasheus-from-gpg \
+    --why='scheduled run' tail --pid="$$" -f /dev/null 2> /dev/null &
+  local inhibit_pid=$!
+
+  sleep 1
+  if ! kill -0 "$inhibit_pid" 2> /dev/null; then
+    echo "warning: couldn't take a sleep lock, so the computer may sleep"
+    echo 'during the run (see the readme)'
+  fi
+}
+
 main() {
   check_clone
 
-  # launchd runs this in a login shell, so the keys come from the shell's
+  # systemd runs this in a login shell, so the keys come from the shell's
   # startup files.
   local variable
   for variable in HASHEUS_PUBLIC_KEY HASHEUS_SECRET_KEY; do
@@ -201,10 +219,7 @@ main() {
     update_clone
   fi
 
-  # keep the mac awake until the run ends.
-  if command -v caffeinate > /dev/null; then
-    caffeinate -i -w "$$" &
-  fi
+  keep_awake
 
   # always post as the run's account, whichever one gh has active.
   set_github_repo_and_user

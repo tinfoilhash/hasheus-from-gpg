@@ -16,9 +16,9 @@ each package script checks a project's new releases: it downloads the release's 
 - `packages/<name>/verify.sh`: one script per package. most are a few lines of config for one of the github flows; bitcoin core, coldcard, and electrum have their own flows. electrum reuses `publish_signed_file` from the per-file github flow.
 - `verify_all.sh`: runs every package script.
 - `check_keys.sh`: audits the listed keys, and imports them with `--import`.
-- `test/`: the [bats](https://github.com/bats-core/bats-core) suite, with fake `gh`, `hasheus`, `curl`, `launchctl`, and `ai` in `test/fakes`.
-- `.github/workflows/test.yml`: lint and tests on macos and ubuntu.
-- `scheduled_run/run.sh` and `scheduled_run/instructions.md`: a run on a schedule on a mac, and the instructions for its ai step. `scheduled_run/install.sh` sets it up (and removes it with `--uninstall`) from the launchd template, `scheduled_run/launchd.plist`, and `scheduled_run/README.md` documents it.
+- `test/`: the [bats](https://github.com/bats-core/bats-core) suite, with fake `gh`, `hasheus`, `curl`, `systemctl`, `loginctl`, `systemd-inhibit`, and `ai` in `test/fakes`.
+- `.github/workflows/test.yml`: lint and tests on ubuntu.
+- `scheduled_run/run.sh` and `scheduled_run/instructions.md`: a run on a schedule on linux, and the instructions for its ai step. `scheduled_run/install.sh` sets it up as a systemd user service and timer (and removes it with `--uninstall`), and `scheduled_run/README.md` documents it.
 
 ## running scripts
 
@@ -58,7 +58,7 @@ each package script checks a project's new releases: it downloads the release's 
 
 ## style
 
-- **bash 3.2**, since that's what macos ships: no `mapfile`, associative arrays, `${var,,}`, or other bash 4+ features. ci runs the tests under 3.2 on macos.
+- **bash 3.2**, which the scripts were written for when they ran on macos: no `mapfile`, associative arrays, `${var,,}`, or other bash 4+ features. ci no longer checks this, since it runs only on linux.
 - formatting is [shfmt](https://github.com/mvdan/sh), with its settings in `.editorconfig`.
 - code and comments fit in 80 columns, except lines with a url. ci checks this, since shfmt doesn't.
 

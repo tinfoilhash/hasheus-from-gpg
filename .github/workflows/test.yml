@@ -10,13 +10,7 @@ permissions:
 
 jobs:
   test:
-    strategy:
-      fail-fast: false
-      matrix:
-        # macos runs the scripts under bash 3.2, which is what catches
-        # compatibility mistakes.
-        os: [macos-latest, ubuntu-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     defaults:
       run:
         # `shell: bash` adds pipefail, which the default shell doesn't.
@@ -24,24 +18,13 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: install dependencies (linux)
-        if: runner.os == 'Linux'
+      - name: install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y gnupg libxml2-utils
           eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
           echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
           brew install actionlint bats-core hq jaq shellcheck shfmt
-
-      - name: install dependencies (macos)
-        if: runner.os == 'macOS'
-        run: brew install actionlint bats-core gnupg hq jaq shellcheck shfmt
-
-      # the scripts run with `env bash`, so make sure that's still macos's bash
-      # 3.2 and not a newer one on the path.
-      - name: check bash version (macos)
-        if: runner.os == 'macOS'
-        run: bash --version | head -n 1 | grep -F 'version 3.2'
 
       - name: lint
         run: |

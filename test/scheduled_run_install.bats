@@ -1,23 +1,23 @@
 #!/usr/bin/env bats
 
 # runs scheduled_run/install.sh from a scratch checkout whose origin is a local
-# repo, with HOME in a temp directory and the fake launchctl.
+# repo, with HOME in a temp directory and the fake systemctl and loginctl.
 
 # shellcheck source=test/test_helper.bash
 source "$BATS_TEST_DIRNAME/test_helper.bash"
 
-label='com.hasheus.from-gpg.scheduled-run'
+unit='hasheus-from-gpg-scheduled-run'
 
 git_quiet() {
   git -c user.name=test -c user.email=test@test -c init.defaultBranch=main \
+    -c commit.gpgsign=false \
     "$@" -q
 }
 
 setup() {
   local work_dir="$BATS_TEST_TMPDIR/work"
   mkdir -p "$work_dir/scheduled_run"
-  cp "$PROJECT_DIR/scheduled_run/install.sh" \
-    "$PROJECT_DIR/scheduled_run/launchd.plist" "$work_dir/scheduled_run/"
+  cp "$PROJECT_DIR/scheduled_run/install.sh" "$work_dir/scheduled_run/"
   git_quiet -C "$work_dir" init
   git -C "$work_dir" add .
   git_quiet -C "$work_dir" commit -m 'scratch repo'
@@ -30,15 +30,19 @@ setup() {
   export HOME="$BATS_TEST_TMPDIR/home"
   export SHELL=/bin/bash
   export PATH="$PROJECT_DIR/test/fakes:$PATH"
-  export FAKE_LAUNCHCTL_LOG="$BATS_TEST_TMPDIR/launchctl.log"
+  export FAKE_SYSTEMCTL_LOG="$BATS_TEST_TMPDIR/systemctl.log"
+  export FAKE_LINGER=1
   unset SCHEDULED_RUN_CLONE_DIR SCHEDULED_RUN_LOG_DIR SCHEDULED_RUN_HOURS \
-    SCHEDULED_RUN_WEEKDAYS HASHEUS_PUBLIC_KEY HASHEUS_SECRET_KEY
+    SCHEDULED_RUN_WEEKDAYS HASHEUS_PUBLIC_KEY HASHEUS_SECRET_KEY \
+    XDG_CONFIG_HOME XDG_DATA_HOME XDG_STATE_HOME
   mkdir -p "$HOME"
   printf '%s\n' 'export HASHEUS_PUBLIC_KEY=npub1fake' \
     'export HASHEUS_SECRET_KEY=nsec1fake' > "$HOME/.bash_profile"
 
-  clone_dir="$HOME/Library/Application Support/hasheus-from-gpg/repo"
-  plist="$HOME/Library/LaunchAgents/$label.plist"
+  clone_dir="$HOME/.local/share/hasheus-from-gpg/repo"
+  log_dir="$HOME/.local/state/hasheus-from-gpg/logs"
+  service="$HOME/.config/systemd/user/$unit.service"
+  timer="$HOME/.config/systemd/user/$unit.timer"
 }
 
 run_install() {
@@ -57,17 +61,31 @@ run_install() {
     "$(git -C "$origin_dir" rev-parse main)" ]
 }
 
-@test 'writes the plist with the shell and paths filled in' {
+@test 'writes the service with the shell and paths filled in' {
   run_install
 
   [ "$status" -eq 0 ]
-  plutil -lint "$plist" > /dev/null 2>&1 || ! command -v plutil > /dev/null
-  grep -q '<string>/bin/bash</string>' "$plist"
-  grep -qF "<string>'$clone_dir/scheduled_run/run.sh'</string>" "$plist"
-  grep -qF "<string>$HOME/Library/Logs/hasheus-from-gpg/launchd.log</string>" \
-    "$plist"
-  [ "$(grep -c 'LOGIN_SHELL\|CLONE_DIR\|LOG_DIR' "$plist")" -eq 0 ]
-  [ -d "$HOME/Library/Logs/hasheus-from-gpg" ]
+  grep -qxF \
+    "ExecStart=\"/bin/bash\" -l -c \"'$clone_dir/scheduled_run/run.sh'\"" \
+    "$service"
+  grep -qxF "Environment=\"SCHEDULED_RUN_LOG_DIR=$log_dir\"" "$service"
+  grep -qx 'Persistent=true' "$timer"
+  [ -d "$log_dir" ]
+}
+
+@test 'writes units systemd accepts' {
+  command -v systemd-analyze > /dev/null || skip 'no systemd-analyze'
+
+  SCHEDULED_RUN_CLONE_DIR="$BATS_TEST_TMPDIR/my clone" \
+    SCHEDULED_RUN_HOURS=9,18 SCHEDULED_RUN_WEEKDAYS=0,6 run_install
+
+  [ "$status" -eq 0 ]
+  # verify checks that ExecStart's program exists, which it does, and parses
+  # the rest of both units.
+  run systemd-analyze --user verify "$service" "$timer"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+  systemd-analyze calendar "$(calendar_of)" > /dev/null
 }
 
 @test 'uses SCHEDULED_RUN_CLONE_DIR and SCHEDULED_RUN_LOG_DIR' {
@@ -79,32 +97,32 @@ run_install() {
   is_marked=$(git -C "$BATS_TEST_TMPDIR/my clone" config \
     hasheus-from-gpg.scheduledRun)
   [ "$is_marked" = true ]
-  grep -qF "'$BATS_TEST_TMPDIR/my clone/scheduled_run/run.sh'" "$plist"
-  grep -qF "$BATS_TEST_TMPDIR/my logs/launchd.log" "$plist"
+  grep -qF "'$BATS_TEST_TMPDIR/my clone/scheduled_run/run.sh'" "$service"
+  grep -qF "SCHEDULED_RUN_LOG_DIR=$BATS_TEST_TMPDIR/my logs\"" "$service"
+  [ -d "$BATS_TEST_TMPDIR/my logs" ]
 }
 
-# prints the plist's calendar entries as "<weekday> <hour>" lines, with "-" for
-# no weekday.
-schedule_of() {
-  awk '
-    /^<dict>/ { weekday = "-" }
-    /<key>Weekday<\/key>/ {
-      weekday = $0
-      gsub(/.*<integer>|<\/integer>.*/, "", weekday)
-    }
-    /<key>Hour<\/key>/ {
-      hour = $0
-      gsub(/.*<integer>|<\/integer>.*/, "", hour)
-      print weekday, hour
-    }
-  ' "$plist"
+@test 'uses the XDG folders when they are set' {
+  XDG_CONFIG_HOME="$BATS_TEST_TMPDIR/config" \
+    XDG_DATA_HOME="$BATS_TEST_TMPDIR/data" \
+    XDG_STATE_HOME="$BATS_TEST_TMPDIR/state" run_install
+
+  [ "$status" -eq 0 ]
+  local xdg_service="$BATS_TEST_TMPDIR/config/systemd/user/$unit.service"
+  grep -qF "'$BATS_TEST_TMPDIR/data/hasheus-from-gpg/repo/" "$xdg_service"
+  grep -qF "=$BATS_TEST_TMPDIR/state/hasheus-from-gpg/logs\"" "$xdg_service"
+}
+
+# prints the timer's OnCalendar value.
+calendar_of() {
+  sed -n 's/^OnCalendar=//p' "$timer"
 }
 
 @test 'schedules 9:00 every day by default' {
   run_install
 
   [ "$status" -eq 0 ]
-  [ "$(schedule_of)" = '- 9' ]
+  [ "$(calendar_of)" = '*-*-* 9:00:00' ]
   [[ "$output" == *'at 9:00 every day'* ]]
 }
 
@@ -112,15 +130,14 @@ schedule_of() {
   SCHEDULED_RUN_HOURS=1,5,9,13,17,21 run_install
 
   [ "$status" -eq 0 ]
-  [ "$(schedule_of | tr '\n' ' ')" = '- 1 - 5 - 9 - 13 - 17 - 21 ' ]
+  [ "$(calendar_of)" = '*-*-* 1,5,9,13,17,21:00:00' ]
 }
 
 @test 'schedules only SCHEDULED_RUN_WEEKDAYS, like once a week' {
   SCHEDULED_RUN_HOURS=9,18 SCHEDULED_RUN_WEEKDAYS=1,5 run_install
 
   [ "$status" -eq 0 ]
-  plutil -lint "$plist" > /dev/null 2>&1 || ! command -v plutil > /dev/null
-  [ "$(schedule_of | tr '\n' ' ')" = '1 9 5 9 1 18 5 18 ' ]
+  [ "$(calendar_of)" = 'Mon,Fri *-*-* 9,18:00:00' ]
   [[ "$output" == *'at 9:00, 18:00 on weekdays 1,5'* ]]
 }
 
@@ -132,24 +149,25 @@ schedule_of() {
   SCHEDULED_RUN_WEEKDAYS=7 run_install
   [ "$status" -eq 1 ]
   [[ "$output" == *'SCHEDULED_RUN_WEEKDAYS must be days from 0'* ]]
-  [ ! -f "$plist" ]
+  [ ! -f "$timer" ]
 }
 
-@test 'refuses paths that would break the plist or the job' {
+@test 'refuses paths that would break the units or the job' {
   local dir
-  for dir in "$BATS_TEST_TMPDIR/a&b" "$BATS_TEST_TMPDIR/it's" \
-    'relative/clone'; do
+  for dir in "$BATS_TEST_TMPDIR/it's" "$BATS_TEST_TMPDIR/a\"b" \
+    "$BATS_TEST_TMPDIR/a\\b" "$BATS_TEST_TMPDIR/\$HOME" \
+    "$BATS_TEST_TMPDIR/%h" 'relative/clone'; do
     SCHEDULED_RUN_CLONE_DIR="$dir" run_install
 
     [ "$status" -eq 1 ]
     [[ "$output" == *'SCHEDULED_RUN_CLONE_DIR must be an absolute path'* ]]
   done
 
-  [ ! -f "$plist" ]
+  [ ! -f "$timer" ]
 }
 
-@test 'exits when launchd does not load the job' {
-  FAKE_LAUNCHCTL_BOOTSTRAP_FAILS=1 run_install
+@test 'exits when systemd does not load the timer' {
+  FAKE_SYSTEMCTL_RELOAD_FAILS=1 run_install
 
   [ "$status" -eq 1 ]
   [[ "$output" != *'installed'* ]]
@@ -165,14 +183,23 @@ schedule_of() {
   [[ "$output" == *"warning: HASHEUS_SECRET_KEY isn't set"* ]]
 }
 
-@test 'loads the job, reloading it on a reinstall' {
+@test 'enables the timer, restarting it on a reinstall' {
   run_install
-  FAKE_LAUNCHCTL_LOADED=1 run_install
+  run_install
 
   [ "$status" -eq 0 ]
   [[ "$output" == *'using the existing clone'* ]]
-  [ "$(grep -c "^bootstrap gui/$(id -u) $plist$" "$FAKE_LAUNCHCTL_LOG")" -eq 2 ]
-  grep -q "^bootout gui/$(id -u)/$label$" "$FAKE_LAUNCHCTL_LOG"
+  [ "$(grep -cx -- '--user daemon-reload' "$FAKE_SYSTEMCTL_LOG")" -eq 2 ]
+  [ "$(grep -cx -- "--user enable -q $unit.timer" "$FAKE_SYSTEMCTL_LOG")" \
+    -eq 2 ]
+  [ "$(grep -cx -- "--user restart $unit.timer" "$FAKE_SYSTEMCTL_LOG")" -eq 2 ]
+}
+
+@test 'warns when lingering is off' {
+  FAKE_LINGER='' run_install
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'warning: lingering is off'* ]]
 }
 
 @test 'refuses to use a folder that is not a scheduled run clone' {
@@ -182,7 +209,7 @@ schedule_of() {
 
   [ "$status" -eq 1 ]
   [[ "$output" == *"exists but isn't a scheduled run clone"* ]]
-  [ ! -f "$plist" ]
+  [ ! -f "$timer" ]
 }
 
 @test 'warns when the login shell does not set a key' {
@@ -204,15 +231,17 @@ schedule_of() {
 
 @test 'uninstalls the job and the clone, keeping the logs' {
   run_install
-  touch "$HOME/Library/Logs/hasheus-from-gpg/kept.log"
+  touch "$log_dir/kept.log"
 
-  FAKE_LAUNCHCTL_LOADED=1 run_install --uninstall
+  run_install --uninstall
 
   [ "$status" -eq 0 ]
-  grep -q "^bootout gui/$(id -u)/$label$" "$FAKE_LAUNCHCTL_LOG"
-  [ ! -f "$plist" ]
+  grep -qx -- "--user disable -q --now $unit.timer" "$FAKE_SYSTEMCTL_LOG"
+  grep -qx -- "--user stop $unit.service" "$FAKE_SYSTEMCTL_LOG"
+  [ ! -f "$service" ]
+  [ ! -f "$timer" ]
   [ ! -e "$clone_dir" ]
-  [ -f "$HOME/Library/Logs/hasheus-from-gpg/kept.log" ]
+  [ -f "$log_dir/kept.log" ]
 }
 
 @test 'leaves a folder that is not a scheduled run clone when uninstalling' {
