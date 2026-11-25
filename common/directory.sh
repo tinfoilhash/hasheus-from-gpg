@@ -109,8 +109,10 @@ directory_tree_assets() {
     local child
     child=$(directory_tree_assets "$url$folder" "$((depth + 1))") \
       || return 1
-    assets=$(jaq --argjson child "$child" '. + $child.assets' \
-      <<< "$assets") || return 1
+    # pass both through stdin, since a large folder's listing can exceed the
+    # size limit of a single command-line argument.
+    assets=$(jaq -s '.[0] + .[1].assets' <<< "$assets
+$child") || return 1
   done 5<<< "$folders"
   jaq '{assets: .}' <<< "$assets"
 }

@@ -267,6 +267,27 @@ HTML
   [ -z "$(leftover_files nextcloud_desktop)" ]
 }
 
+@test 'nextcloud desktop handles a folder too large for one argument' {
+  prepare_nextcloud_desktop
+  local index="$FAKE_CURL_ROOT/download.nextcloud.com/desktop/releases"
+  index+='/Windows/index.html'
+  local padding i
+  padding=$(printf 'x%.0s' {1..100})
+  # over 128 KiB of listing, more than fits in a single argument.
+  {
+    echo '<table>'
+    for i in {1..1500}; do
+      echo "<tr><td><a href=\"old-$i-$padding.txt\">old</a></td>"
+      echo '<td>2026-01-01 00:00</td></tr>'
+    done
+    echo '</table>'
+  } >> "$index"
+  run "$repo_dir/packages/nextcloud_desktop/verify.sh"
+  [ "$status" -eq 0 ]
+  [ "$(wc -l < "$FAKE_HASHEUS_LOG" | tr -d ' ')" = 3 ]
+  [ "$(state_of nextcloud_desktop)" = '2026-10-06T00:16:00Z' ]
+}
+
 @test 'recursive discovery fails rather than truncate deep folders' {
   prepare_nextcloud_desktop
   local root="$FAKE_CURL_ROOT/download.nextcloud.com/desktop/releases"
