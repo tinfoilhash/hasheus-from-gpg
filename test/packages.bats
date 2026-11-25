@@ -667,6 +667,12 @@ run_obtainium_release() {
   [ "$(published)" = 'app-prod-universal-release.apk' ]
 }
 
+@test 'peertube' {
+  run_signed_files_release peertube v8.3.2 .asc peertube-v8.3.2.tar.xz
+  [ "$status" -eq 0 ]
+  [ "$(published)" = 'peertube-v8.3.2.tar.xz' ]
+}
+
 @test 'phoenix' {
   run_release phoenix android-v2.8.4 SHA256SUMS.asc SHA256SUMS.asc \
     phoenix-120-2.8.4-mainnet.apk
