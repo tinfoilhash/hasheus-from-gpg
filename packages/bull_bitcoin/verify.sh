@@ -12,7 +12,7 @@ echo '--- verifying bull bitcoin'
 package_name='bull_bitcoin'
 repo='SatoshiPortal/bullbitcoin-mobile'
 key_fingerprints=(
-  'BC5AD8A26AACD383EF630D455AE8AC51D171F109' # https://github.com/i5hi.gpg
+  'BC5AD8A26AACD383EF630D455AE8AC51D171F109' # https://raw.githubusercontent.com/SatoshiPortal/bullbitcoin-mobile/develop/keys/i5hi.asc
 )
 shasum_filename_pattern='HASHSUMS256'
 shasum_signature_filename_pattern="$shasum_filename_pattern.asc"
