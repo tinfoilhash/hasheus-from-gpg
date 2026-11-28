@@ -263,7 +263,7 @@ publish_to_verify() {
     # the `=` and `--` keep a file name that starts with `-` from reading as
     # an option.
     if output=$(hasheus publish --url "$url" --description="$filename" \
-      --mime-type "$content_type" --yes --json -- "$filename" \
+      --type "$content_type" --yes --json -- "$filename" \
       < /dev/null); then
       echo 'published'
       return
