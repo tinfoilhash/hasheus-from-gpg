@@ -67,7 +67,7 @@ publish() {
   local filename mime_type
   while [ $# -gt 0 ]; do
     case "$1" in
-      --mime-type) mime_type="$2" ;;
+      --type) mime_type="$2" ;;
       --) filename="$2" ;;
     esac
     shift
